@@ -43,6 +43,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential libcurl4-openssl-dev libgmp-dev \
     perl libnet-ssleay-perl libio-socket-ssl-perl liburi-perl libwww-perl \
     libjson-perl libxml-writer-perl \
+    python3 python3-pip python3-venv \
+    nodejs npm \
     dirb \
     default-jre-headless \
     && rm -rf /var/lib/apt/lists/* \
@@ -62,6 +64,25 @@ RUN gem install wpscan --no-document \
 # Optional API token for WPScan vulnerability data (free at wpscan.com)
 # Pass at runtime: docker run -e WPSCAN_API_TOKEN=yourtoken ...
 ENV WPSCAN_API_TOKEN=""
+
+# sqlmap
+RUN git clone --depth=1 https://github.com/sqlmapproject/sqlmap.git /opt/sqlmap \
+    && ln -sf /opt/sqlmap/sqlmap.py /usr/local/bin/sqlmap \
+    && chmod +x /opt/sqlmap/sqlmap.py
+
+# Mozilla HTTP Observatory
+RUN npm install -g mdn-http-observatory 2>/dev/null \
+    && ln -sf "$(npm root -g)/mdn-http-observatory/bin/mdn-http-observatory-scan.js" \
+        /usr/local/bin/observatory 2>/dev/null || true
+
+# droopescan (Drupal / Silverstripe scanner)
+RUN pip3 install droopescan --break-system-packages 2>/dev/null || \
+    pip3 install droopescan 2>/dev/null || true
+
+# JoomScan (OWASP Joomla scanner)
+RUN git clone --depth=1 https://github.com/OWASP/joomscan.git /opt/joomscan \
+    && chmod +x /opt/joomscan/joomscan.pl \
+    && ln -sf /opt/joomscan/joomscan.pl /usr/local/bin/joomscan
 
 # Nikto
 RUN git clone --depth=1 https://github.com/sullo/nikto.git /opt/nikto \

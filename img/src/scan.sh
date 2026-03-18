@@ -43,6 +43,7 @@ ${BOLD}Options:${RESET}
   --skip-zap          Skip OWASP ZAP
   --skip-brute        Skip gobuster + ffuf
   --skip-nikto        Skip nikto
+  --skip-sqlmap       Skip sqlmap
   --severity LEVEL    Nuclei severity (default: low,medium,high,critical)
   --help              Show this help
 
@@ -61,16 +62,18 @@ OUTPUT_PATH=""
 SKIP_ZAP=false
 SKIP_BRUTE=false
 SKIP_NIKTO=false
+SKIP_SQLMAP=false
 SEVERITY="low,medium,high,critical"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        -o)            OUTPUT_PATH="$2"; shift ;;
-        --skip-zap)    SKIP_ZAP=true ;;
-        --skip-brute)  SKIP_BRUTE=true ;;
-        --skip-nikto)  SKIP_NIKTO=true ;;
-        --severity)    SEVERITY="$2"; shift ;;
-        --help)        usage ;;
+        -o)             OUTPUT_PATH="$2"; shift ;;
+        --skip-zap)     SKIP_ZAP=true ;;
+        --skip-brute)   SKIP_BRUTE=true ;;
+        --skip-nikto)   SKIP_NIKTO=true ;;
+        --skip-sqlmap)  SKIP_SQLMAP=true ;;
+        --severity)     SEVERITY="$2"; shift ;;
+        --help)         usage ;;
         *) echo "Unknown option: $1"; usage ;;
     esac
     shift
@@ -120,7 +123,7 @@ info "Started:     $(date)"
 # -----------------------------------------------------------------------------
 # 1 — Fingerprinting
 # -----------------------------------------------------------------------------
-section "1/9 — Fingerprinting"
+section "1/13 — Fingerprinting"
 
 info "whatweb..."
 whatweb "${TARGET_URI}" --log-verbose="${OUT_DIR}/whatweb.txt" 2>&1 \
@@ -137,7 +140,7 @@ ok "httpx done"
 # -----------------------------------------------------------------------------
 # 2 — Subdomain enumeration
 # -----------------------------------------------------------------------------
-section "2/9 — Subdomain Enumeration"
+section "2/13 — Subdomain Enumeration"
 
 info "subfinder..."
 subfinder -d "${TARGET_HOST}" -o "${OUT_DIR}/subdomains.txt" 2>&1 \
@@ -155,7 +158,7 @@ fi
 # -----------------------------------------------------------------------------
 # 3 — DNS
 # -----------------------------------------------------------------------------
-section "3/9 — DNS Enumeration"
+section "3/13 — DNS Enumeration"
 
 info "dnsx..."
 echo "${TARGET_HOST}" | dnsx \
@@ -167,7 +170,7 @@ ok "dnsx done"
 # -----------------------------------------------------------------------------
 # 4 — Ports
 # -----------------------------------------------------------------------------
-section "4/9 — Port Scanning"
+section "4/13 — Port Scanning"
 
 info "naabu (top 1000)..."
 naabu -host "${TARGET_HOST}" -top-ports 1000 \
@@ -178,7 +181,7 @@ ok "naabu done"
 # -----------------------------------------------------------------------------
 # 5 — SSL/TLS
 # -----------------------------------------------------------------------------
-section "5/9 — SSL/TLS Analysis"
+section "5/13 — SSL/TLS Analysis"
 
 info "testssl.sh..."
 testssl.sh \
@@ -190,9 +193,29 @@ testssl.sh \
 ok "testssl.sh done"
 
 # -----------------------------------------------------------------------------
+# 6 — Mozilla HTTP Observatory
+# -----------------------------------------------------------------------------
+section "6/13 — HTTP Security Headers (Mozilla Observatory)"
+
+info "observatory..."
+if command -v observatory &>/dev/null; then
+    observatory "${TARGET_HOST}" --format json \
+        > "${OUT_DIR}/observatory.json" 2>&1 || true
+    observatory "${TARGET_HOST}" --format report --zero \
+        > "${OUT_DIR}/observatory.txt" 2>&1 || true
+    ok "observatory done"
+else
+    # Fallback: call the MDN API directly
+    info "observatory CLI not found, querying MDN API..."
+    curl -sf "https://observatory-api.mdn.mozilla.net/api/v2/scan?host=${TARGET_HOST}" \
+        -o "${OUT_DIR}/observatory.json" 2>/dev/null || true
+    ok "observatory done (API fallback)"
+fi
+
+# -----------------------------------------------------------------------------
 # 6 — Nikto
 # -----------------------------------------------------------------------------
-section "6/9 — Nikto"
+section "7/13 — Nikto"
 
 if [[ "${SKIP_NIKTO}" == "false" ]]; then
     info "nikto (all CGI dirs, full tuning)..."
@@ -208,18 +231,23 @@ else
 fi
 
 # -----------------------------------------------------------------------------
-# 7 — WPScan (conditional on WordPress detection)
+# 8 — CMS Scanning (WordPress / Drupal / Joomla — auto-detected)
 # -----------------------------------------------------------------------------
-section "7/10 — WPScan (WordPress Detection)"
+section "8/13 — CMS Scanning"
 
 IS_WORDPRESS=false
+IS_DRUPAL=false
+IS_JOOMLA=false
 
-# Check httpx tech-detect output and whatweb output for WordPress
-if grep -qi "wordpress" "${OUT_DIR}/httpx.txt" 2>/dev/null || \
-   grep -qi "wordpress" "${OUT_DIR}/whatweb.txt" 2>/dev/null; then
-    IS_WORDPRESS=true
-fi
+# Detect from httpx and whatweb output
+grep -qi "wordpress" "${OUT_DIR}/httpx.txt"  2>/dev/null && IS_WORDPRESS=true
+grep -qi "wordpress" "${OUT_DIR}/whatweb.txt" 2>/dev/null && IS_WORDPRESS=true
+grep -qi "drupal"    "${OUT_DIR}/httpx.txt"  2>/dev/null && IS_DRUPAL=true
+grep -qi "drupal"    "${OUT_DIR}/whatweb.txt" 2>/dev/null && IS_DRUPAL=true
+grep -qi "joomla"    "${OUT_DIR}/httpx.txt"  2>/dev/null && IS_JOOMLA=true
+grep -qi "joomla"    "${OUT_DIR}/whatweb.txt" 2>/dev/null && IS_JOOMLA=true
 
+# WordPress → WPScan
 if [[ "${IS_WORDPRESS}" == "true" ]]; then
     info "WordPress detected — running WPScan..."
 
@@ -231,12 +259,9 @@ if [[ "${IS_WORDPRESS}" == "true" ]]; then
         --format json
         --output "${OUT_DIR}/wpscan.json"
     )
-
     [[ -n "${WPSCAN_API_TOKEN:-}" ]] && WPSCAN_ARGS+=(--api-token "${WPSCAN_API_TOKEN}")
-
     wpscan "${WPSCAN_ARGS[@]}" 2>&1 | tee "${OUT_DIR}/wpscan_console.txt" || true
 
-    # Also a human-readable text version
     wpscan --url "${TARGET_URI}" \
         --enumerate vp,vt,u \
         --plugins-detection mixed \
@@ -244,17 +269,43 @@ if [[ "${IS_WORDPRESS}" == "true" ]]; then
         ${WPSCAN_API_TOKEN:+--api-token "${WPSCAN_API_TOKEN}"} \
         --output "${OUT_DIR}/wpscan.txt" \
         2>/dev/null || true
-
     ok "WPScan done"
 else
     warn "WordPress not detected — skipping WPScan"
-    info "To force a WPScan run, add --force-wpscan (not yet implemented) or check httpx.txt"
 fi
+
+# Drupal → droopescan
+if [[ "${IS_DRUPAL}" == "true" ]]; then
+    info "Drupal detected — running droopescan..."
+    droopescan scan drupal -u "${TARGET_URI}" \
+        --output-format json \
+        > "${OUT_DIR}/droopescan.json" 2>&1 || true
+    droopescan scan drupal -u "${TARGET_URI}" \
+        > "${OUT_DIR}/droopescan.txt" 2>&1 || true
+    ok "droopescan done"
+else
+    warn "Drupal not detected — skipping droopescan"
+fi
+
+# Joomla → JoomScan
+if [[ "${IS_JOOMLA}" == "true" ]]; then
+    info "Joomla detected — running JoomScan..."
+    joomscan \
+        --url "${TARGET_URI}" \
+        --output "${OUT_DIR}/joomscan.txt" 2>&1 \
+        | tee "${OUT_DIR}/joomscan_console.txt" || true
+    ok "JoomScan done"
+else
+    warn "Joomla not detected — skipping JoomScan"
+fi
+
+[[ "${IS_WORDPRESS}" == "false" && "${IS_DRUPAL}" == "false" && "${IS_JOOMLA}" == "false" ]] && \
+    info "No known CMS detected — all CMS scanners skipped"
 
 # -----------------------------------------------------------------------------
 # 8 — Endpoint discovery
 # -----------------------------------------------------------------------------
-section "8/10 — Endpoint Discovery"
+section "9/13 — Endpoint Discovery"
 
 info "katana..."
 katana -u "${TARGET_URI}" -depth 3 -js-crawl \
@@ -284,9 +335,42 @@ else
 fi
 
 # -----------------------------------------------------------------------------
+# 10 — SQLMap
+# -----------------------------------------------------------------------------
+section "10/13 — SQLMap (SQL Injection)"
+
+info "sqlmap — crawling target for injection points..."
+if [[ "${SKIP_SQLMAP}" == "false" ]]; then
+    SQLMAP_ARGS=(
+        -u "${TARGET_URI}"
+        --crawl=2
+        --forms
+        --batch
+        --level=2
+        --risk=1
+        --output-dir="${OUT_DIR}/sqlmap"
+        --random-agent
+        --timeout=10
+        --retries=2
+    )
+
+    # If katana found endpoints, feed them in too
+    if [[ -s "${OUT_DIR}/endpoints.txt" ]]; then
+        info "Feeding katana-discovered endpoints to sqlmap..."
+        SQLMAP_ARGS+=(-m "${OUT_DIR}/endpoints.txt")
+    fi
+
+    sqlmap "${SQLMAP_ARGS[@]}" 2>&1 \
+        | tee "${OUT_DIR}/sqlmap_console.txt" || true
+    ok "sqlmap done"
+else
+    warn "sqlmap skipped (--skip-sqlmap)"
+fi
+
+# -----------------------------------------------------------------------------
 # 8 — Nuclei
 # -----------------------------------------------------------------------------
-section "9/10 — Nuclei"
+section "11/13 — Nuclei"
 
 info "Updating templates..."
 nuclei -update-templates -silent 2>/dev/null || true
@@ -302,7 +386,7 @@ ok "nuclei done"
 # -----------------------------------------------------------------------------
 # 9 — ZAP
 # -----------------------------------------------------------------------------
-section "10/10 — OWASP ZAP"
+section "12/13 — OWASP ZAP"
 
 if [[ "${SKIP_ZAP}" == "false" ]]; then
     info "ZAP full scan (may take several minutes)..."
@@ -326,9 +410,15 @@ section "Complete — $(date)"
 FILES=(
     whatweb.txt httpx.txt subdomains.txt subdomains_live.txt
     dns.txt ports.txt testssl.txt testssl.json
-    nikto.txt nikto.json wpscan.txt wpscan.json
+    observatory.txt observatory.json
+    nikto.txt nikto.json
+    wpscan.txt wpscan.json
+    droopescan.txt droopescan.json
+    joomscan.txt
     endpoints.txt gobuster.txt ffuf.json
-    nuclei.txt nuclei.json zap_report.html
+    sqlmap_console.txt
+    nuclei.txt nuclei.json
+    zap_report.html
 )
 
 if [[ -n "${OUTPUT_PATH}" ]]; then
@@ -340,13 +430,21 @@ if [[ -n "${OUTPUT_PATH}" ]]; then
             echo -e "  ${GREEN}✓${RESET} ${f} ${CYAN}(${SIZE})${RESET}"
         fi
     done
+    # sqlmap writes its own subdirectory
+    if [[ -d "${OUT_DIR}/sqlmap" ]]; then
+        echo -e "  ${GREEN}✓${RESET} sqlmap/ ${CYAN}(dir)${RESET}"
+    fi
 else
     # stdout summary
-    [[ -s "${OUT_DIR}/httpx.txt" ]]    && { echo -e "\n${BOLD}── Fingerprint ──${RESET}"; cat "${OUT_DIR}/httpx.txt"; }
-    [[ -s "${OUT_DIR}/ports.txt" ]]    && { echo -e "\n${BOLD}── Open Ports ───${RESET}"; cat "${OUT_DIR}/ports.txt"; }
-    [[ -s "${OUT_DIR}/testssl.txt" ]]  && { echo -e "\n${BOLD}── SSL Issues ───${RESET}"; grep -E "WARN|CRITICAL|NOT ok" "${OUT_DIR}/testssl.txt" || echo "  None"; }
-    [[ -s "${OUT_DIR}/nikto.txt" ]]    && { echo -e "\n${BOLD}── Nikto ────────${RESET}"; grep "^+" "${OUT_DIR}/nikto.txt" || echo "  None"; }
-    [[ -s "${OUT_DIR}/wpscan.txt" ]]   && { echo -e "\n${BOLD}── WPScan ───────${RESET}"; grep -E "\[!\]|\[\+\]" "${OUT_DIR}/wpscan.txt" || echo "  None"; }
-    [[ -s "${OUT_DIR}/nuclei.txt" ]]   && { echo -e "\n${BOLD}── Nuclei ───────${RESET}"; cat "${OUT_DIR}/nuclei.txt"; }
-    [[ -s "${OUT_DIR}/gobuster.txt" ]] && { echo -e "\n${BOLD}── Paths ────────${RESET}"; head -50 "${OUT_DIR}/gobuster.txt"; }
+    [[ -s "${OUT_DIR}/httpx.txt" ]]         && { echo -e "\n${BOLD}── Fingerprint ──────${RESET}"; cat "${OUT_DIR}/httpx.txt"; }
+    [[ -s "${OUT_DIR}/ports.txt" ]]         && { echo -e "\n${BOLD}── Open Ports ───────${RESET}"; cat "${OUT_DIR}/ports.txt"; }
+    [[ -s "${OUT_DIR}/testssl.txt" ]]       && { echo -e "\n${BOLD}── SSL Issues ───────${RESET}"; grep -E "WARN|CRITICAL|NOT ok" "${OUT_DIR}/testssl.txt" || echo "  None"; }
+    [[ -s "${OUT_DIR}/observatory.txt" ]]   && { echo -e "\n${BOLD}── HTTP Headers ─────${RESET}"; cat "${OUT_DIR}/observatory.txt"; }
+    [[ -s "${OUT_DIR}/nikto.txt" ]]         && { echo -e "\n${BOLD}── Nikto ────────────${RESET}"; grep "^+" "${OUT_DIR}/nikto.txt" || echo "  None"; }
+    [[ -s "${OUT_DIR}/wpscan.txt" ]]        && { echo -e "\n${BOLD}── WPScan ───────────${RESET}"; grep -E "\[!\]|\[\+\]" "${OUT_DIR}/wpscan.txt" || echo "  None"; }
+    [[ -s "${OUT_DIR}/droopescan.txt" ]]    && { echo -e "\n${BOLD}── Droopescan ───────${RESET}"; cat "${OUT_DIR}/droopescan.txt"; }
+    [[ -s "${OUT_DIR}/joomscan.txt" ]]      && { echo -e "\n${BOLD}── JoomScan ─────────${RESET}"; grep -E "^\[" "${OUT_DIR}/joomscan.txt" || echo "  None"; }
+    [[ -s "${OUT_DIR}/sqlmap_console.txt" ]] && { echo -e "\n${BOLD}── SQLMap ───────────${RESET}"; grep -E "injectable|Parameter|Type:" "${OUT_DIR}/sqlmap_console.txt" || echo "  None found"; }
+    [[ -s "${OUT_DIR}/nuclei.txt" ]]        && { echo -e "\n${BOLD}── Nuclei ───────────${RESET}"; cat "${OUT_DIR}/nuclei.txt"; }
+    [[ -s "${OUT_DIR}/gobuster.txt" ]]      && { echo -e "\n${BOLD}── Paths ────────────${RESET}"; head -50 "${OUT_DIR}/gobuster.txt"; }
 fi

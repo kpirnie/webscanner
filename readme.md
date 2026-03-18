@@ -12,15 +12,18 @@
 [![dnsx](https://img.shields.io/github/v/release/projectdiscovery/dnsx?label=dnsx&logo=github)](https://github.com/projectdiscovery/dnsx/releases/latest)
 [![gobuster](https://img.shields.io/github/v/release/OJ/gobuster?label=gobuster&logo=github)](https://github.com/OJ/gobuster/releases/latest)
 [![ffuf](https://img.shields.io/github/v/release/ffuf/ffuf?label=ffuf&logo=github)](https://github.com/ffuf/ffuf/releases/latest)
+[![sqlmap](https://img.shields.io/github/v/release/sqlmapproject/sqlmap?label=sqlmap&logo=github)](https://github.com/sqlmapproject/sqlmap/releases/latest)
 [![nikto](https://img.shields.io/github/v/release/sullo/nikto?label=nikto&logo=github)](https://github.com/sullo/nikto/releases/latest)
 [![WhatWeb](https://img.shields.io/github/v/release/urbanadventurer/WhatWeb?label=whatweb&logo=github)](https://github.com/urbanadventurer/WhatWeb/releases/latest)
 [![testssl.sh](https://img.shields.io/github/v/release/drwetter/testssl.sh?label=testssl.sh&logo=github)](https://github.com/drwetter/testssl.sh/releases/latest)
 [![WPScan](https://img.shields.io/github/v/release/wpscanteam/wpscan?label=wpscan&logo=github)](https://github.com/wpscanteam/wpscan/releases/latest)
+[![droopescan](https://img.shields.io/github/v/release/SamJoan/droopescan?label=droopescan&logo=github)](https://github.com/SamJoan/droopescan/releases/latest)
+[![JoomScan](https://img.shields.io/github/v/release/OWASP/joomscan?label=joomscan&logo=github)](https://github.com/OWASP/joomscan/releases/latest)
 [![ZAP](https://img.shields.io/github/v/release/zaproxy/zaproxy?label=owasp-zap&logo=github)](https://github.com/zaproxy/zaproxy/releases/latest)
 
 ---
 
-**KP WebScanner** is a fully self-contained, Docker-based web security scanning suite. It bundles thirteen industry-standard security tools into a single image, orchestrated by a single entrypoint script. Point it at any target and get a comprehensive security assessment covering fingerprinting, subdomain enumeration, DNS analysis, port scanning, SSL/TLS auditing, vulnerability detection, endpoint discovery, and active scanning — with automatic WordPress-specific scanning when WordPress is detected.
+**KP WebScanner** is a fully self-contained, Docker-based web security scanning suite. It bundles seventeen industry-standard security tools into a single image, orchestrated by a single entrypoint script. Point it at any target and get a comprehensive security assessment covering fingerprinting, subdomain enumeration, DNS analysis, port scanning, SSL/TLS auditing, HTTP security header grading, SQL injection testing, vulnerability detection, endpoint discovery, and active scanning — with automatic CMS-specific scanning for WordPress, Drupal, and Joomla when detected.
 
 All tools install at their latest versions at image build time. No host dependencies beyond Docker or Podman are required.
 
@@ -40,10 +43,14 @@ All tools install at their latest versions at image build time. No host dependen
 | [dnsx](https://github.com/projectdiscovery/dnsx) | Reconnaissance | DNS record enumeration (A, AAAA, MX, NS, TXT, CNAME) |
 | [gobuster](https://github.com/OJ/gobuster) | Discovery | Directory & path brute-forcing |
 | [ffuf](https://github.com/ffuf/ffuf) | Discovery | Fast web fuzzing |
+| [sqlmap](https://github.com/sqlmapproject/sqlmap) | Injection Testing | Automated SQL injection detection & exploitation |
 | [Nikto](https://github.com/sullo/nikto) | Vulnerability Scanning | Web server misconfiguration & known vulnerability checks |
 | [WhatWeb](https://github.com/urbanadventurer/WhatWeb) | Fingerprinting | Web technology identification |
 | [testssl.sh](https://github.com/drwetter/testssl.sh) | SSL/TLS | Cipher suite analysis, certificate validation, protocol weaknesses |
-| [WPScan](https://github.com/wpscanteam/wpscan) | WordPress | Plugin/theme vulnerability scanning, user enumeration (auto-triggered) |
+| [Mozilla Observatory](https://github.com/mdn/mdn-http-observatory) | Headers | HTTP security header grading (CSP, HSTS, SRI, X-Frame-Options, etc.) |
+| [WPScan](https://github.com/wpscanteam/wpscan) | CMS | WordPress plugin/theme vuln scanning, user enumeration (auto-triggered) |
+| [droopescan](https://github.com/SamJoan/droopescan) | CMS | Drupal vulnerability & version scanning (auto-triggered) |
+| [JoomScan](https://github.com/OWASP/joomscan) | CMS | Joomla vulnerability & component scanning (auto-triggered) |
 | [OWASP ZAP](https://github.com/zaproxy/zaproxy) | Active Scanning | Dynamic application security testing |
 
 ---
@@ -116,6 +123,7 @@ docker run --rm --network host --cap-add NET_ADMIN --cap-add NET_RAW \
 | `--skip-zap` | Skip OWASP ZAP active scan |
 | `--skip-brute` | Skip gobuster and ffuf directory brute-forcing |
 | `--skip-nikto` | Skip Nikto scan |
+| `--skip-sqlmap` | Skip sqlmap SQL injection scan |
 | `--severity LEVEL` | Nuclei severity filter. Comma-separated. Default: `low,medium,high,critical` |
 
 ---
@@ -132,19 +140,35 @@ docker run ... -e WPSCAN_API_TOKEN=your_token_here ghcr.io/kpirnie/webscanner:la
 
 ---
 
+## CMS Auto-Detection
+
+KP WebScanner fingerprints the target CMS during step 1 and automatically routes to the appropriate scanner:
+
+| Detected CMS | Scanner Triggered |
+|---|---|
+| WordPress | WPScan |
+| Drupal | droopescan |
+| Joomla | JoomScan |
+
+Detection uses httpx tech-detect and WhatWeb output. Multiple CMS scanners can trigger in a single run if multiple platforms are detected across subdomains.
+
+---
+
 ## Scan Pipeline
 
 ```
- 1/10  Fingerprinting       WhatWeb, httpx
- 2/10  Subdomain Enum       subfinder + httpx live probe
- 3/10  DNS Enumeration      dnsx  (A, AAAA, CNAME, MX, NS, TXT)
- 4/10  Port Scanning        naabu (top 1000 ports, raw packet mode)
- 5/10  SSL/TLS Analysis     testssl.sh
- 6/10  Web Server Scan      Nikto (all CGI dirs, full tuning)
- 7/10  WordPress Scan       WPScan (auto-triggered if WordPress detected)
- 8/10  Endpoint Discovery   katana, gobuster, ffuf
- 9/10  Vulnerability Scan   Nuclei
-10/10  Active Scan          OWASP ZAP
+ 1/12  Fingerprinting         WhatWeb, httpx
+ 2/12  Subdomain Enum         subfinder + httpx live probe
+ 3/12  DNS Enumeration        dnsx  (A, AAAA, CNAME, MX, NS, TXT)
+ 4/12  Port Scanning          naabu (top 1000 ports, raw packet mode)
+ 5/12  SSL/TLS Analysis       testssl.sh
+ 6/12  HTTP Security Headers  Mozilla Observatory
+ 7/12  Web Server Scan        Nikto (all CGI dirs, full tuning)
+ 8/12  CMS Scanning           WPScan / droopescan / JoomScan (auto-triggered)
+ 9/12  Endpoint Discovery     katana, gobuster, ffuf
+10/12  SQL Injection          sqlmap (crawls + feeds katana endpoints)
+11/12  Vulnerability Scan     Nuclei
+12/12  Active Scan            OWASP ZAP
 ```
 
 ---
@@ -156,28 +180,28 @@ When using `-o`, each run creates a timestamped subdirectory:
 ```
 results/
 └── example.com_20260318_153000/
-    ├── scan.log                    ← full master log of the entire run
+    ├── scan.log                         ← full master log of the entire run
     ├── whatweb.txt
     ├── httpx.txt
     ├── subdomains.txt
     ├── subdomains_live.txt
     ├── dns.txt
     ├── ports.txt
-    ├── testssl.txt
-    ├── testssl.json
-    ├── nikto.txt
-    ├── nikto.json
-    ├── wpscan.txt                  ← WordPress sites only
-    ├── wpscan.json                 ← WordPress sites only
+    ├── testssl.txt / testssl.json
+    ├── observatory.txt / observatory.json
+    ├── nikto.txt / nikto.json
+    ├── wpscan.txt / wpscan.json         ← WordPress only
+    ├── droopescan.txt / droopescan.json ← Drupal only
+    ├── joomscan.txt                     ← Joomla only
     ├── endpoints.txt
     ├── gobuster.txt
     ├── ffuf.json
-    ├── nuclei.txt
-    ├── nuclei.json
+    ├── sqlmap/                          ← sqlmap output directory
+    ├── nuclei.txt / nuclei.json
     └── zap_report.html
 ```
 
-When `-o` is omitted, a condensed findings summary is printed to stdout covering fingerprint, open ports, SSL issues, Nikto findings, WPScan findings, and Nuclei results.
+When `-o` is omitted, a condensed findings summary is printed to stdout covering fingerprint, open ports, SSL issues, Observatory header grade, Nikto findings, CMS scan results, sqlmap findings, and Nuclei results.
 
 ---
 
@@ -188,6 +212,8 @@ When `-o` is omitted, a condensed findings summary is printed to stdout covering
 - ZAP heap is capped at 512MB via `JAVA_OPTS` to prevent OOM on memory-constrained hosts
 - ZAP home directories are pre-created at build time to eliminate first-run initialization hangs
 - Nuclei templates are baked into the image at build time and refreshed on each scan run
+- sqlmap runs at `--level=2 --risk=1` by default — safe for authorized testing without being overly aggressive
+- CMS detection is automatic — WPScan, droopescan, and JoomScan only run when their respective CMS is fingerprinted
 - All Go-based tools are compiled in a separate builder stage; only binaries are copied to the final image, keeping image size lean
 
 ---
