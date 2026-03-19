@@ -24,7 +24,8 @@ RUN go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest            
     go install -v github.com/projectdiscovery/dnsx/cmd/dnsx@latest               && \
     go install -v github.com/ffuf/ffuf/v2@latest                                 && \
     go install -v github.com/OJ/gobuster/v3@latest                               && \
-    go install -v github.com/hahwul/dalfox/v2@latest
+    go install -v github.com/hahwul/dalfox/v2@latest                             && \
+    go install -v github.com/google/osv-scanner/v2/cmd/osv-scanner@latest
 
 # -----------------------------------------------------------------------------
 # Stage 2: Final image
@@ -38,7 +39,7 @@ ENV PATH="${PATH}:/opt/zap"
 # System packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates curl wget git bash jq \
-    dnsutils iputils-ping net-tools libpcap-dev procps \
+    dnsutils iputils-ping net-tools libpcap-dev procps nmap \
     openssl bsdmainutils \
     ruby ruby-dev libxml2 libxml2-dev libxslt1-dev zlib1g-dev \
     build-essential libcurl4-openssl-dev libgmp-dev \
@@ -85,15 +86,6 @@ RUN npm install -g mdn-http-observatory 2>/dev/null \
     && ln -sf "$(npm root -g)/mdn-http-observatory/bin/mdn-http-observatory-scan.js" \
         /usr/local/bin/observatory 2>/dev/null || true
 
-# droopescan (Drupal / Silverstripe scanner)
-RUN pip3 install droopescan --break-system-packages 2>/dev/null || \
-    pip3 install droopescan 2>/dev/null || true
-
-# JoomScan (OWASP Joomla scanner)
-RUN git clone --depth=1 https://github.com/OWASP/joomscan.git /opt/joomscan \
-    && chmod +x /opt/joomscan/joomscan.pl \
-    && ln -sf /opt/joomscan/joomscan.pl /usr/local/bin/joomscan
-
 # Nikto
 RUN git clone --depth=1 https://github.com/sullo/nikto.git /opt/nikto \
     && chmod +x /opt/nikto/program/nikto.pl \
@@ -125,7 +117,8 @@ COPY --from=go-builder /go/bin/katana     /usr/local/bin/katana
 COPY --from=go-builder /go/bin/dnsx       /usr/local/bin/dnsx
 COPY --from=go-builder /go/bin/ffuf       /usr/local/bin/ffuf
 COPY --from=go-builder /go/bin/gobuster   /usr/local/bin/gobuster
-COPY --from=go-builder /go/bin/dalfox     /usr/local/bin/dalfox
+COPY --from=go-builder /go/bin/dalfox      /usr/local/bin/dalfox
+COPY --from=go-builder /go/bin/osv-scanner /usr/local/bin/osv-scanner
 
 # Bake nuclei templates
 RUN nuclei -update-templates -silent 2>/dev/null || true
