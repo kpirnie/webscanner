@@ -1,9 +1,9 @@
 # KP WebScanner
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![kevinpirnie.com](https://img.shields.io/badge/site-kevinpirnie.com-43819c?labelColor=000d2d)](https://kevinpirnie.com/)
-[![Build main](https://github.com/kpirnie/webscanner/actions/workflows/build.yaml/badge.svg?branch=main)](https://github.com/kpirnie/webscanner/actions/workflows/build.yaml)
-[![Build develop](https://github.com/kpirnie/webscanner/actions/workflows/build.yaml/badge.svg?branch=develop)](https://github.com/kpirnie/webscanner/actions/workflows/build.yaml)
+[![kevinpirnie.com](https://img.shields.io/badge/site-kevinpirnie.com-2d7696?labelColor=599bb8)](https://kevinpirnie.com/)
+[![Build main](https://github.com/kpirnie/webscanner/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/kpirnie/webscanner/actions/workflows/build.yml)
+[![Build develop](https://github.com/kpirnie/webscanner/actions/workflows/build.yml/badge.svg?branch=develop)](https://github.com/kpirnie/webscanner/actions/workflows/build.yml)
 
 [![Nuclei](https://img.shields.io/github/v/release/projectdiscovery/nuclei?label=nuclei&logo=github)](https://github.com/projectdiscovery/nuclei/releases/latest)
 [![httpx](https://img.shields.io/github/v/release/projectdiscovery/httpx?label=httpx&logo=github)](https://github.com/projectdiscovery/httpx/releases/latest)
