@@ -5,7 +5,7 @@
 # -----------------------------------------------------------------------------
 # Stage 1: Build Go tools
 # -----------------------------------------------------------------------------
-FROM docker.io/library/golang:1.25-bookworm AS go-builder
+FROM docker.io/library/golang:1.26-bookworm AS go-builder
 
 ENV GOPATH=/go
 ENV CGO_ENABLED=1
