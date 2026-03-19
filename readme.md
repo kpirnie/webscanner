@@ -22,13 +22,13 @@
 [![testssl.sh](https://img.shields.io/github/v/release/drwetter/testssl.sh?label=testssl.sh&logo=github)](https://github.com/drwetter/testssl.sh/releases/latest)
 [![WPScan](https://img.shields.io/github/v/release/wpscanteam/wpscan?label=wpscan&logo=github)](https://github.com/wpscanteam/wpscan/releases/latest)
 [![ZAP](https://img.shields.io/github/v/release/zaproxy/zaproxy?label=owasp-zap&logo=github)](https://github.com/zaproxy/zaproxy/releases/latest)
-[![bad-bot-blocker](https://img.shields.io/github/v/release/mitchellkrogza/nginx-ultimate-bad-bot-blocker?label=nginx-bad-bot-blocker&color=43819c)](https://github.com/mitchellkrogza/nginx-ultimate-bad-bot-blocker)
+[![bad-bot-blocker](https://img.shields.io/badge/nginx--bad--bot--blocker-repo-43819c?logo=github)](https://github.com/mitchellkrogza/nginx-ultimate-bad-bot-blocker)
 
 ---
 
 **KP WebScanner** is a fully self-contained, Docker-based web security scanning suite. It bundles twenty-two industry-standard security tools into a single image, orchestrated by a single entrypoint script. Point it at any target and get a comprehensive security assessment covering passive recon, fingerprinting, subdomain enumeration, DNS analysis, port scanning, deep service fingerprinting, SSL/TLS auditing, HTTP security header grading, parameter discovery, XSS scanning, SQL injection testing, dependency vulnerability scanning, vulnerability detection, endpoint discovery, active scanning, and nginx bad bot blocker validation — with automatic WordPress-specific scanning when detected.
 
-All tools install at their latest versions at image build time. No host dependencies beyond Docker or Podman are required.
+All tools install at their latest versions at image build time. No host dependencies beyond Docker or Podman are required. Results are compiled into a single `report.html` using UIkit at the end of each scan.
 
 > ⚠️ **Only scan targets you own or have explicit written permission to test. Unauthorized scanning is illegal.**
 
@@ -102,16 +102,22 @@ docker run --rm --network host --cap-add NET_ADMIN --cap-add NET_RAW \
 docker run --rm --network host --cap-add NET_ADMIN --cap-add NET_RAW \
     ghcr.io/kpirnie/webscanner:latest https://example.com
 
-# Full scan — all results written to host directory
+# Full scan — all results + HTML report written to host directory
 docker run --rm --network host --cap-add NET_ADMIN --cap-add NET_RAW \
     -v $(pwd)/results:/output \
     ghcr.io/kpirnie/webscanner:latest https://example.com -o results
 
-# Targeted scan — high/critical only, skip ZAP and brute-forcing
+# Fast scan — skip slow steps, high/critical findings only
 docker run --rm --network host --cap-add NET_ADMIN --cap-add NET_RAW \
     -v $(pwd)/results:/output \
     ghcr.io/kpirnie/webscanner:latest https://example.com \
-    -o results --skip-zap --skip-brute --severity high,critical
+    -o results --skip-zap --skip-brute --skip-arjun --severity high,critical
+
+# Recon only — no active scanning
+docker run --rm --network host --cap-add NET_ADMIN --cap-add NET_RAW \
+    -v $(pwd)/results:/output \
+    ghcr.io/kpirnie/webscanner:latest https://example.com \
+    -o results --skip-nikto --skip-xss --skip-sqlmap --skip-nuclei --skip-zap
 
 # WordPress site with full vulnerability data (requires free API token)
 docker run --rm --network host --cap-add NET_ADMIN --cap-add NET_RAW \
@@ -128,19 +134,43 @@ docker run --rm --network host --cap-add NET_ADMIN --cap-add NET_RAW \
 |---|---|
 | `<target-uri>` | Target to scan. Accepts bare domain (`example.com`) or full URI (`https://example.com:8443`) |
 | `-o PATH` | Write all results to `/output/PATH` on the host. Requires a `-v` volume mount. Omit to print a condensed summary to stdout. |
-| `--skip-zap` | Skip OWASP ZAP active scan |
-| `--skip-brute` | Skip gobuster and ffuf directory brute-forcing |
-| `--skip-nikto` | Skip Nikto scan |
-| `--skip-sqlmap` | Skip sqlmap SQL injection scan |
 | `--severity LEVEL` | Nuclei severity filter. Comma-separated. Default: `low,medium,high,critical` |
 
-**Optional API keys** passed at runtime via `-e`:
+### Skip Flags
+
+Every scan step can be individually skipped:
+
+| Flag | Skips |
+|---|---|
+| `--skip-fingerprint` | WhatWeb + httpx |
+| `--skip-recon` | Shodan + Censys passive lookup |
+| `--skip-subdomains` | subfinder subdomain enumeration |
+| `--skip-dns` | dnsx DNS record enumeration |
+| `--skip-ports` | naabu port scanning |
+| `--skip-nmap` | Nmap service & script scan |
+| `--skip-ssl` | testssl.sh SSL/TLS analysis |
+| `--skip-headers` | Mozilla Observatory header grading |
+| `--skip-nikto` | Nikto web server scan |
+| `--skip-cms` | CMS detection + WPScan |
+| `--skip-crawl` | katana web crawling |
+| `--skip-brute` | gobuster + ffuf directory brute-forcing |
+| `--skip-arjun` | Arjun parameter discovery |
+| `--skip-xss` | Dalfox XSS scanning |
+| `--skip-sqlmap` | sqlmap SQL injection testing |
+| `--skip-osv` | OSV-Scanner dependency scanning |
+| `--skip-nuclei` | Nuclei vulnerability scanning |
+| `--skip-botblocker` | nginx bad bot blocker validation |
+| `--skip-zap` | OWASP ZAP active scan |
+
+### Optional API Keys
+
+Passed at runtime via `-e`:
 
 | Variable | Tool | Get one at |
 |---|---|---|
 | `WPSCAN_API_TOKEN` | WPScan | [wpscan.com/register](https://wpscan.com/register) — 25 req/day free |
 | `SHODAN_API_KEY` | Shodan | [account.shodan.io](https://account.shodan.io/register) — free tier available |
-| `CENSYS_API_ID` + `CENSYS_API_SECRET` | Censys | [censys.io](https://censys.io/register) — free tier available |
+| `CENSYS_APP_ID` + `CENSYS_TOKEN` | Censys | [censys.io](https://censys.io/register) — free tier available |
 
 ---
 
@@ -183,22 +213,23 @@ KP WebScanner fingerprints the CMS during step 1 and automatically triggers WPSc
 
 ## Output Structure
 
-When using `-o`, each run creates a timestamped subdirectory:
+When using `-o`, each run creates a timestamped subdirectory containing all raw tool outputs plus a consolidated `report.html`:
 
 ```
 results/
 └── example.com_20260318_153000/
     ├── scan.log
+    ├── report.html                          ← consolidated UIkit HTML report
     ├── whatweb.txt
     ├── httpx.txt
     ├── shodan.txt                           ← if SHODAN_API_KEY set
-    ├── censys.txt                           ← if CENSYS_API_ID/SECRET set
+    ├── censys.txt                           ← if CENSYS_APP_ID/TOKEN set
     ├── subdomains.txt / subdomains_live.txt
     ├── dns.txt
     ├── ports.txt
     ├── nmap.txt / nmap.xml
     ├── testssl.txt / testssl.json
-    ├── observatory.txt / observatory.json
+    ├── observatory.json
     ├── nikto.txt / nikto.json
     ├── wpscan.txt / wpscan.json             ← WordPress only
     ├── endpoints.txt
@@ -212,6 +243,8 @@ results/
     ├── botblocker_test.txt
     └── zap_report.html
 ```
+
+`report.html` aggregates all tool outputs into a single dark-themed UIkit page with a summary dashboard, per-step accordion sections, and a direct link to the ZAP report. Skipped steps are clearly indicated inline.
 
 ---
 
