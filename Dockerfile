@@ -83,8 +83,7 @@ RUN git clone --depth=1 https://github.com/sqlmapproject/sqlmap.git /opt/sqlmap 
 
 # Mozilla HTTP Observatory
 RUN npm install -g @mdn/mdn-http-observatory 2>/dev/null \
-    && ln -sf "$(npm root -g)/@mdn/mdn-http-observatory/bin/mdn-http-observatory-scan.js" \
-        /usr/local/bin/observatory 2>/dev/null || true
+    && ln -sf "$(which mdn-http-observatory-scan)" /usr/local/bin/observatory 2>/dev/null || true
         
 # Nikto
 RUN git clone --depth=1 https://github.com/sullo/nikto.git /opt/nikto \

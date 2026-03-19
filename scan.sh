@@ -334,7 +334,7 @@ if [[ "${SKIP_HEADERS}" == "false" ]]; then
         ok "observatory done"
     else
         info "observatory CLI not found, querying MDN API..."
-        curl -sf "https://observatory-api.mdn.mozilla.net/api/v2/scan?host=${TARGET_HOST}" \
+        curl -sf -X POST "https://observatory-api.mdn.mozilla.net/api/v2/scan?host=${TARGET_HOST}" \
             -o "${OUT_DIR}/observatory.json" 2>/dev/null || true
         ok "observatory done (API fallback)"
     fi
@@ -428,14 +428,16 @@ if [[ "${SKIP_BRUTE}" == "false" ]]; then
     if [[ -n "${WORDLIST}" ]]; then
         info "gobuster..."
         gobuster dir -u "${TARGET_URI}" -w "${WORDLIST}" \
-            -o "${OUT_DIR}/gobuster.txt" -k --timeout 10s 2>&1 \
+            -o "${OUT_DIR}/gobuster.txt" -k --timeout 10s \
+            --delay 100ms 2>&1 \
             | tee "${OUT_DIR}/gobuster_console.txt" || true
         ok "gobuster done"
 
         info "ffuf..."
         ffuf -u "${TARGET_URI}/FUZZ" -w "${WORDLIST}" \
             -o "${OUT_DIR}/ffuf.json" -of json \
-            -mc 200,201,204,301,302,307,401,403 -timeout 10 2>&1 \
+            -mc 200,201,204,301,302,307,401,403 -timeout 10 \
+            -rate 50 2>&1 \
             | tee "${OUT_DIR}/ffuf_console.txt" || true
         ok "ffuf done"
     else
