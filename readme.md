@@ -13,6 +13,9 @@
 [![gobuster](https://img.shields.io/github/v/release/OJ/gobuster?label=gobuster&logo=github)](https://github.com/OJ/gobuster/releases/latest)
 [![ffuf](https://img.shields.io/github/v/release/ffuf/ffuf?label=ffuf&logo=github)](https://github.com/ffuf/ffuf/releases/latest)
 [![sqlmap](https://img.shields.io/github/v/release/sqlmapproject/sqlmap?label=sqlmap&logo=github)](https://github.com/sqlmapproject/sqlmap/releases/latest)
+[![dalfox](https://img.shields.io/github/v/release/hahwul/dalfox?label=dalfox&logo=github)](https://github.com/hahwul/dalfox/releases/latest)
+[![arjun](https://img.shields.io/github/v/release/s0md3v/Arjun?label=arjun&logo=github)](https://github.com/s0md3v/Arjun/releases/latest)
+[![trufflehog](https://img.shields.io/github/v/release/trufflesecurity/trufflehog?label=trufflehog&logo=github)](https://github.com/trufflesecurity/trufflehog/releases/latest)
 [![nikto](https://img.shields.io/github/v/release/sullo/nikto?label=nikto&logo=github)](https://github.com/sullo/nikto/releases/latest)
 [![WhatWeb](https://img.shields.io/github/v/release/urbanadventurer/WhatWeb?label=whatweb&logo=github)](https://github.com/urbanadventurer/WhatWeb/releases/latest)
 [![testssl.sh](https://img.shields.io/github/v/release/drwetter/testssl.sh?label=testssl.sh&logo=github)](https://github.com/drwetter/testssl.sh/releases/latest)
@@ -23,7 +26,7 @@
 
 ---
 
-**KP WebScanner** is a fully self-contained, Docker-based web security scanning suite. It bundles seventeen industry-standard security tools into a single image, orchestrated by a single entrypoint script. Point it at any target and get a comprehensive security assessment covering fingerprinting, subdomain enumeration, DNS analysis, port scanning, SSL/TLS auditing, HTTP security header grading, SQL injection testing, vulnerability detection, endpoint discovery, and active scanning — with automatic CMS-specific scanning for WordPress, Drupal, and Joomla when detected.
+**KP WebScanner** is a fully self-contained, Docker-based web security scanning suite. It bundles twenty-one industry-standard security tools into a single image, orchestrated by a single entrypoint script. Point it at any target and get a comprehensive security assessment covering passive recon, fingerprinting, subdomain enumeration, DNS analysis, port scanning, SSL/TLS auditing, HTTP security header grading, parameter discovery, XSS scanning, SQL injection testing, secrets detection, vulnerability detection, endpoint discovery, and active scanning — with automatic CMS-specific scanning for WordPress, Drupal, and Joomla when detected.
 
 All tools install at their latest versions at image build time. No host dependencies beyond Docker or Podman are required.
 
@@ -35,6 +38,7 @@ All tools install at their latest versions at image build time. No host dependen
 
 | Tool | Category | Purpose |
 |---|---|---|
+| [Shodan](https://www.shodan.io) | Passive Recon | Query Shodan's index for open ports, banners & known vulns (zero active requests, optional API key) |
 | [Nuclei](https://github.com/projectdiscovery/nuclei) | Vulnerability Scanning | Template-based CVE & misconfiguration detection |
 | [httpx](https://github.com/projectdiscovery/httpx) | Fingerprinting | HTTP probing, tech detection, status codes |
 | [subfinder](https://github.com/projectdiscovery/subfinder) | Reconnaissance | Passive subdomain enumeration |
@@ -44,6 +48,9 @@ All tools install at their latest versions at image build time. No host dependen
 | [gobuster](https://github.com/OJ/gobuster) | Discovery | Directory & path brute-forcing |
 | [ffuf](https://github.com/ffuf/ffuf) | Discovery | Fast web fuzzing |
 | [sqlmap](https://github.com/sqlmapproject/sqlmap) | Injection Testing | Automated SQL injection detection & exploitation |
+| [Dalfox](https://github.com/hahwul/dalfox) | XSS Scanning | Parameter analysis & XSS detection (reflected, DOM, stored) |
+| [Arjun](https://github.com/s0md3v/Arjun) | Discovery | Hidden HTTP parameter discovery (25,890 param dictionary) |
+| [TruffleHog](https://github.com/trufflesecurity/trufflehog) | Secrets Detection | Exposed API keys, credentials & secrets in page content/JS |
 | [Nikto](https://github.com/sullo/nikto) | Vulnerability Scanning | Web server misconfiguration & known vulnerability checks |
 | [WhatWeb](https://github.com/urbanadventurer/WhatWeb) | Fingerprinting | Web technology identification |
 | [testssl.sh](https://github.com/drwetter/testssl.sh) | SSL/TLS | Cipher suite analysis, certificate validation, protocol weaknesses |
@@ -126,17 +133,12 @@ docker run --rm --network host --cap-add NET_ADMIN --cap-add NET_RAW \
 | `--skip-sqlmap` | Skip sqlmap SQL injection scan |
 | `--severity LEVEL` | Nuclei severity filter. Comma-separated. Default: `low,medium,high,critical` |
 
----
+**Optional API keys** passed at runtime via `-e`:
 
-## WPScan & API Token
-
-WPScan is triggered automatically when WordPress is detected in the fingerprinting phase (via httpx or WhatWeb output). It enumerates vulnerable plugins, vulnerable themes, and user accounts.
-
-Without an API token, WPScan still runs but returns no vulnerability data. A **free API token** providing 25 requests/day is available at [wpscan.com/register](https://wpscan.com/register). Pass it at runtime:
-
-```bash
-docker run ... -e WPSCAN_API_TOKEN=your_token_here ghcr.io/kpirnie/webscanner:latest ...
-```
+| Variable | Tool | Get one at |
+|---|---|---|
+| `WPSCAN_API_TOKEN` | WPScan | [wpscan.com/register](https://wpscan.com/register) — 25 req/day free |
+| `SHODAN_API_KEY` | Shodan | [shodan.io](https://account.shodan.io/register) — free tier available |
 
 ---
 
@@ -157,18 +159,21 @@ Detection uses httpx tech-detect and WhatWeb output. Multiple CMS scanners can t
 ## Scan Pipeline
 
 ```
- 1/12  Fingerprinting         WhatWeb, httpx
- 2/12  Subdomain Enum         subfinder + httpx live probe
- 3/12  DNS Enumeration        dnsx  (A, AAAA, CNAME, MX, NS, TXT)
- 4/12  Port Scanning          naabu (top 1000 ports, raw packet mode)
- 5/12  SSL/TLS Analysis       testssl.sh
- 6/12  HTTP Security Headers  Mozilla Observatory
- 7/12  Web Server Scan        Nikto (all CGI dirs, full tuning)
- 8/12  CMS Scanning           WPScan / droopescan / JoomScan (auto-triggered)
- 9/12  Endpoint Discovery     katana, gobuster, ffuf
-10/12  SQL Injection          sqlmap (crawls + feeds katana endpoints)
-11/12  Vulnerability Scan     Nuclei
-12/12  Active Scan            OWASP ZAP
+ 1/16  Fingerprinting & Passive Recon   WhatWeb, httpx, Shodan (if key set)
+ 2/16  Subdomain Enum                   subfinder + httpx live probe
+ 3/16  DNS Enumeration                  dnsx  (A, AAAA, CNAME, MX, NS, TXT)
+ 4/16  Port Scanning                    naabu (top 1000 ports, raw packet mode)
+ 5/16  SSL/TLS Analysis                 testssl.sh
+ 6/16  HTTP Security Headers            Mozilla Observatory
+ 7/16  Web Server Scan                  Nikto (all CGI dirs, full tuning)
+ 8/16  CMS Scanning                     WPScan / droopescan / JoomScan (auto-triggered)
+ 9/16  Endpoint Discovery               katana, gobuster, ffuf
+10/16  Parameter Discovery              Arjun (25,890 param dictionary)
+11/16  XSS Scanning                     Dalfox (reflected, DOM, stored)
+12/16  SQL Injection                    sqlmap (crawls + feeds katana endpoints)
+13/16  Secrets Detection                TruffleHog (JS files, page content, .git)
+14/16  Vulnerability Scan               Nuclei
+15/16  Active Scan                      OWASP ZAP
 ```
 
 ---
@@ -180,11 +185,11 @@ When using `-o`, each run creates a timestamped subdirectory:
 ```
 results/
 └── example.com_20260318_153000/
-    ├── scan.log                         ← full master log of the entire run
+    ├── scan.log
     ├── whatweb.txt
     ├── httpx.txt
-    ├── subdomains.txt
-    ├── subdomains_live.txt
+    ├── shodan.txt                       ← if SHODAN_API_KEY set
+    ├── subdomains.txt / subdomains_live.txt
     ├── dns.txt
     ├── ports.txt
     ├── testssl.txt / testssl.json
@@ -196,12 +201,13 @@ results/
     ├── endpoints.txt
     ├── gobuster.txt
     ├── ffuf.json
-    ├── sqlmap/                          ← sqlmap output directory
+    ├── arjun.json                       ← discovered hidden parameters
+    ├── dalfox.txt                       ← XSS findings
+    ├── sqlmap/
+    ├── trufflehog.txt / trufflehog.json ← secrets & credentials
     ├── nuclei.txt / nuclei.json
     └── zap_report.html
 ```
-
-When `-o` is omitted, a condensed findings summary is printed to stdout covering fingerprint, open ports, SSL issues, Observatory header grade, Nikto findings, CMS scan results, sqlmap findings, and Nuclei results.
 
 ---
 
@@ -212,6 +218,9 @@ When `-o` is omitted, a condensed findings summary is printed to stdout covering
 - ZAP heap is capped at 512MB via `JAVA_OPTS` to prevent OOM on memory-constrained hosts
 - ZAP home directories are pre-created at build time to eliminate first-run initialization hangs
 - Nuclei templates are baked into the image at build time and refreshed on each scan run
+- Shodan does zero active scanning — it only queries Shodan's existing index for the target IP
+- TruffleHog downloads JS/HTML content found by katana and scans offline; also checks for exposed `.git` directories
+- Arjun runs against the first 50 discovered endpoints to avoid excessive runtime
 - sqlmap runs at `--level=2 --risk=1` by default — safe for authorized testing without being overly aggressive
 - CMS detection is automatic — WPScan, droopescan, and JoomScan only run when their respective CMS is fingerprinted
 - All Go-based tools are compiled in a separate builder stage; only binaries are copied to the final image, keeping image size lean

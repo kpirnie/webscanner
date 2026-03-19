@@ -1,5 +1,5 @@
 # =============================================================================
-# webscan — Full Web Security Scanner Suite
+# webscanner — Full Web Security Scanner Suite
 # =============================================================================
 
 # -----------------------------------------------------------------------------
@@ -23,7 +23,9 @@ RUN go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest            
     go install -v github.com/projectdiscovery/katana/cmd/katana@latest           && \
     go install -v github.com/projectdiscovery/dnsx/cmd/dnsx@latest               && \
     go install -v github.com/ffuf/ffuf/v2@latest                                 && \
-    go install -v github.com/OJ/gobuster/v3@latest
+    go install -v github.com/OJ/gobuster/v3@latest                               && \
+    go install -v github.com/hahwul/dalfox/v2@latest                             && \
+    go install -v github.com/trufflesecurity/trufflehog/v3@latest
 
 # -----------------------------------------------------------------------------
 # Stage 2: Final image
@@ -65,7 +67,15 @@ RUN gem install wpscan --no-document \
 # Pass at runtime: docker run -e WPSCAN_API_TOKEN=yourtoken ...
 ENV WPSCAN_API_TOKEN=""
 
-# sqlmap
+# Arjun + Shodan CLI
+RUN pip3 install arjun shodan --break-system-packages 2>/dev/null || \
+    pip3 install arjun shodan 2>/dev/null || true
+
+# Optional: Shodan API key for passive recon (free at shodan.io)
+# Pass at runtime: docker run -e SHODAN_API_KEY=yourkey ...
+ENV SHODAN_API_KEY=""
+
+
 RUN git clone --depth=1 https://github.com/sqlmapproject/sqlmap.git /opt/sqlmap \
     && ln -sf /opt/sqlmap/sqlmap.py /usr/local/bin/sqlmap \
     && chmod +x /opt/sqlmap/sqlmap.py
@@ -115,12 +125,14 @@ COPY --from=go-builder /go/bin/katana     /usr/local/bin/katana
 COPY --from=go-builder /go/bin/dnsx       /usr/local/bin/dnsx
 COPY --from=go-builder /go/bin/ffuf       /usr/local/bin/ffuf
 COPY --from=go-builder /go/bin/gobuster   /usr/local/bin/gobuster
+COPY --from=go-builder /go/bin/dalfox     /usr/local/bin/dalfox
+COPY --from=go-builder /go/bin/trufflehog /usr/local/bin/trufflehog
 
 # Bake nuclei templates
 RUN nuclei -update-templates -silent 2>/dev/null || true
 
 # Entrypoint
-COPY img/src/scan.sh /usr/local/bin/scan.sh
+COPY scan.sh /usr/local/bin/scan.sh
 RUN chmod +x /usr/local/bin/scan.sh
 
 VOLUME ["/output"]

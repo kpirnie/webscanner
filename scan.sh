@@ -123,7 +123,7 @@ info "Started:     $(date)"
 # -----------------------------------------------------------------------------
 # 1 — Fingerprinting
 # -----------------------------------------------------------------------------
-section "1/13 — Fingerprinting"
+section "1/16 — Fingerprinting & Passive Recon"
 
 info "whatweb..."
 whatweb "${TARGET_URI}" --log-verbose="${OUT_DIR}/whatweb.txt" 2>&1 \
@@ -137,10 +137,25 @@ echo "${TARGET_HOST}" | httpx \
     | tee "${OUT_DIR}/httpx_console.txt" || true
 ok "httpx done"
 
+# Shodan passive recon — zero active requests to the target
+if [[ -n "${SHODAN_API_KEY:-}" ]]; then
+    info "Shodan passive recon..."
+    TARGET_IP=$(dig +short "${TARGET_HOST}" | head -1)
+    if [[ -n "${TARGET_IP}" ]]; then
+        shodan host "${TARGET_IP}" \
+            > "${OUT_DIR}/shodan.txt" 2>&1 || true
+        ok "Shodan done → ${OUT_DIR}/shodan.txt"
+    else
+        warn "Could not resolve ${TARGET_HOST} for Shodan lookup"
+    fi
+else
+    warn "SHODAN_API_KEY not set — skipping Shodan (free key at shodan.io)"
+fi
+
 # -----------------------------------------------------------------------------
 # 2 — Subdomain enumeration
 # -----------------------------------------------------------------------------
-section "2/13 — Subdomain Enumeration"
+section "2/16 — Subdomain Enumeration"
 
 info "subfinder..."
 subfinder -d "${TARGET_HOST}" -o "${OUT_DIR}/subdomains.txt" 2>&1 \
@@ -158,7 +173,7 @@ fi
 # -----------------------------------------------------------------------------
 # 3 — DNS
 # -----------------------------------------------------------------------------
-section "3/13 — DNS Enumeration"
+section "3/16 — DNS Enumeration"
 
 info "dnsx..."
 echo "${TARGET_HOST}" | dnsx \
@@ -170,7 +185,7 @@ ok "dnsx done"
 # -----------------------------------------------------------------------------
 # 4 — Ports
 # -----------------------------------------------------------------------------
-section "4/13 — Port Scanning"
+section "4/16 — Port Scanning"
 
 info "naabu (top 1000)..."
 naabu -host "${TARGET_HOST}" -top-ports 1000 \
@@ -181,7 +196,7 @@ ok "naabu done"
 # -----------------------------------------------------------------------------
 # 5 — SSL/TLS
 # -----------------------------------------------------------------------------
-section "5/13 — SSL/TLS Analysis"
+section "5/16 — SSL/TLS Analysis"
 
 info "testssl.sh..."
 testssl.sh \
@@ -195,7 +210,7 @@ ok "testssl.sh done"
 # -----------------------------------------------------------------------------
 # 6 — Mozilla HTTP Observatory
 # -----------------------------------------------------------------------------
-section "6/13 — HTTP Security Headers (Mozilla Observatory)"
+section "6/16 — HTTP Security Headers (Mozilla Observatory)"
 
 info "observatory..."
 if command -v observatory &>/dev/null; then
@@ -215,7 +230,7 @@ fi
 # -----------------------------------------------------------------------------
 # 6 — Nikto
 # -----------------------------------------------------------------------------
-section "7/13 — Nikto"
+section "7/16 — Nikto"
 
 if [[ "${SKIP_NIKTO}" == "false" ]]; then
     info "nikto (all CGI dirs, full tuning)..."
@@ -233,7 +248,7 @@ fi
 # -----------------------------------------------------------------------------
 # 8 — CMS Scanning (WordPress / Drupal / Joomla — auto-detected)
 # -----------------------------------------------------------------------------
-section "8/13 — CMS Scanning"
+section "8/16 — CMS Scanning"
 
 IS_WORDPRESS=false
 IS_DRUPAL=false
@@ -305,7 +320,7 @@ fi
 # -----------------------------------------------------------------------------
 # 8 — Endpoint discovery
 # -----------------------------------------------------------------------------
-section "9/13 — Endpoint Discovery"
+section "9/16 — Endpoint Discovery"
 
 info "katana..."
 katana -u "${TARGET_URI}" -depth 3 -js-crawl \
@@ -335,9 +350,49 @@ else
 fi
 
 # -----------------------------------------------------------------------------
-# 10 — SQLMap
 # -----------------------------------------------------------------------------
-section "10/13 — SQLMap (SQL Injection)"
+# 10 — Arjun (Hidden parameter discovery)
+# -----------------------------------------------------------------------------
+section "10/16 — Arjun (Parameter Discovery)"
+
+info "arjun — discovering hidden parameters..."
+if [[ -s "${OUT_DIR}/endpoints.txt" ]]; then
+    head -50 "${OUT_DIR}/endpoints.txt" > "${OUT_DIR}/arjun_targets.txt"
+    arjun -i "${OUT_DIR}/arjun_targets.txt" \
+        -oJ "${OUT_DIR}/arjun.json" \
+        -t 5 --stable \
+        2>&1 | tee "${OUT_DIR}/arjun_console.txt" || true
+else
+    arjun -u "${TARGET_URI}" \
+        -oJ "${OUT_DIR}/arjun.json" \
+        -t 5 --stable \
+        2>&1 | tee "${OUT_DIR}/arjun_console.txt" || true
+fi
+ok "arjun done"
+
+# -----------------------------------------------------------------------------
+# 11 — Dalfox (XSS scanning)
+# -----------------------------------------------------------------------------
+section "11/16 — Dalfox (XSS Scanning)"
+
+info "dalfox — scanning for XSS..."
+if [[ -s "${OUT_DIR}/endpoints.txt" ]]; then
+    dalfox file "${OUT_DIR}/endpoints.txt" \
+        --silence --no-spinner --follow-redirects \
+        --output "${OUT_DIR}/dalfox.txt" \
+        2>&1 | tee "${OUT_DIR}/dalfox_console.txt" || true
+else
+    dalfox url "${TARGET_URI}" \
+        --silence --no-spinner --follow-redirects \
+        --output "${OUT_DIR}/dalfox.txt" \
+        2>&1 | tee "${OUT_DIR}/dalfox_console.txt" || true
+fi
+ok "dalfox done"
+
+# -----------------------------------------------------------------------------
+# 12 — SQLMap (SQL Injection)
+# -----------------------------------------------------------------------------
+section "12/16 — SQLMap (SQL Injection)"
 
 info "sqlmap — crawling target for injection points..."
 if [[ "${SKIP_SQLMAP}" == "false" ]]; then
@@ -370,7 +425,52 @@ fi
 # -----------------------------------------------------------------------------
 # 8 — Nuclei
 # -----------------------------------------------------------------------------
-section "11/13 — Nuclei"
+section "13/16 — TruffleHog (Secrets Detection)"
+
+info "trufflehog — scanning for exposed secrets in page content..."
+SECRETS_DIR="${OUT_DIR}/secrets_scan"
+mkdir -p "${SECRETS_DIR}"
+
+# Download JS files and page content found by katana for offline scanning
+if [[ -s "${OUT_DIR}/endpoints.txt" ]]; then
+    info "Downloading discovered endpoints for secrets scan..."
+    while IFS= read -r url; do
+        # Only fetch JS files and HTML pages — skip images/fonts/etc
+        if echo "${url}" | grep -qiE '\.(js|html|htm|json|xml|txt|config|env)($|\?)'; then
+            SAFE_NAME=$(echo "${url}" | sed 's|[^a-zA-Z0-9]|_|g' | cut -c1-100)
+            curl -sf --max-time 10 "${url}" \
+                -o "${SECRETS_DIR}/${SAFE_NAME}" 2>/dev/null || true
+        fi
+    done < "${OUT_DIR}/endpoints.txt"
+fi
+
+# Also grab the root page
+curl -sf --max-time 10 "${TARGET_URI}" \
+    -o "${SECRETS_DIR}/index_root" 2>/dev/null || true
+
+trufflehog filesystem "${SECRETS_DIR}" \
+    --no-update \
+    --json \
+    > "${OUT_DIR}/trufflehog.json" 2>&1 || true
+
+# Human readable summary
+trufflehog filesystem "${SECRETS_DIR}" \
+    --no-update \
+    > "${OUT_DIR}/trufflehog.txt" 2>&1 || true
+
+ok "trufflehog done"
+
+# Also check for exposed .git directory (trufflehog can extract history)
+if curl -sf --max-time 5 "${TARGET_URI}/.git/HEAD" 2>/dev/null | grep -q "ref:"; then
+    warn "Exposed .git directory detected — running trufflehog git scan..."
+    trufflehog git "${TARGET_URI}" \
+        --no-update \
+        --json \
+        >> "${OUT_DIR}/trufflehog.json" 2>&1 || true
+    ok "trufflehog git scan done"
+fi
+
+section "14/16 — Nuclei"
 
 info "Updating templates..."
 nuclei -update-templates -silent 2>/dev/null || true
@@ -386,7 +486,7 @@ ok "nuclei done"
 # -----------------------------------------------------------------------------
 # 9 — ZAP
 # -----------------------------------------------------------------------------
-section "12/13 — OWASP ZAP"
+section "15/16 — OWASP ZAP"
 
 if [[ "${SKIP_ZAP}" == "false" ]]; then
     info "ZAP full scan (may take several minutes)..."
@@ -408,7 +508,8 @@ fi
 section "Complete — $(date)"
 
 FILES=(
-    whatweb.txt httpx.txt subdomains.txt subdomains_live.txt
+    whatweb.txt httpx.txt shodan.txt
+    subdomains.txt subdomains_live.txt
     dns.txt ports.txt testssl.txt testssl.json
     observatory.txt observatory.json
     nikto.txt nikto.json
@@ -416,7 +517,9 @@ FILES=(
     droopescan.txt droopescan.json
     joomscan.txt
     endpoints.txt gobuster.txt ffuf.json
+    arjun.json dalfox.txt
     sqlmap_console.txt
+    trufflehog.txt trufflehog.json
     nuclei.txt nuclei.json
     zap_report.html
 )
@@ -436,6 +539,7 @@ if [[ -n "${OUTPUT_PATH}" ]]; then
     fi
 else
     # stdout summary
+    [[ -s "${OUT_DIR}/shodan.txt" ]]        && { echo -e "\n${BOLD}── Shodan ───────────${RESET}"; cat "${OUT_DIR}/shodan.txt"; }
     [[ -s "${OUT_DIR}/httpx.txt" ]]         && { echo -e "\n${BOLD}── Fingerprint ──────${RESET}"; cat "${OUT_DIR}/httpx.txt"; }
     [[ -s "${OUT_DIR}/ports.txt" ]]         && { echo -e "\n${BOLD}── Open Ports ───────${RESET}"; cat "${OUT_DIR}/ports.txt"; }
     [[ -s "${OUT_DIR}/testssl.txt" ]]       && { echo -e "\n${BOLD}── SSL Issues ───────${RESET}"; grep -E "WARN|CRITICAL|NOT ok" "${OUT_DIR}/testssl.txt" || echo "  None"; }
@@ -444,7 +548,10 @@ else
     [[ -s "${OUT_DIR}/wpscan.txt" ]]        && { echo -e "\n${BOLD}── WPScan ───────────${RESET}"; grep -E "\[!\]|\[\+\]" "${OUT_DIR}/wpscan.txt" || echo "  None"; }
     [[ -s "${OUT_DIR}/droopescan.txt" ]]    && { echo -e "\n${BOLD}── Droopescan ───────${RESET}"; cat "${OUT_DIR}/droopescan.txt"; }
     [[ -s "${OUT_DIR}/joomscan.txt" ]]      && { echo -e "\n${BOLD}── JoomScan ─────────${RESET}"; grep -E "^\[" "${OUT_DIR}/joomscan.txt" || echo "  None"; }
+    [[ -s "${OUT_DIR}/arjun.json" ]]        && { echo -e "\n${BOLD}── Arjun Params ─────${RESET}"; jq -r '.[] | .url + " → " + (.params | join(", "))' "${OUT_DIR}/arjun.json" 2>/dev/null || cat "${OUT_DIR}/arjun.json"; }
+    [[ -s "${OUT_DIR}/dalfox.txt" ]]        && { echo -e "\n${BOLD}── Dalfox XSS ───────${RESET}"; grep -E "VULN|WEAK|POC" "${OUT_DIR}/dalfox.txt" || echo "  None found"; }
     [[ -s "${OUT_DIR}/sqlmap_console.txt" ]] && { echo -e "\n${BOLD}── SQLMap ───────────${RESET}"; grep -E "injectable|Parameter|Type:" "${OUT_DIR}/sqlmap_console.txt" || echo "  None found"; }
+    [[ -s "${OUT_DIR}/trufflehog.txt" ]]    && { echo -e "\n${BOLD}── Secrets ──────────${RESET}"; grep -E "Found|Verified" "${OUT_DIR}/trufflehog.txt" || echo "  None found"; }
     [[ -s "${OUT_DIR}/nuclei.txt" ]]        && { echo -e "\n${BOLD}── Nuclei ───────────${RESET}"; cat "${OUT_DIR}/nuclei.txt"; }
     [[ -s "${OUT_DIR}/gobuster.txt" ]]      && { echo -e "\n${BOLD}── Paths ────────────${RESET}"; head -50 "${OUT_DIR}/gobuster.txt"; }
 fi
