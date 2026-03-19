@@ -46,13 +46,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     perl libnet-ssleay-perl libio-socket-ssl-perl liburi-perl libwww-perl \
     libjson-perl libxml-writer-perl \
     python3 python3-pip python3-venv \
-    nodejs npm \
     dirb \
     default-jre-headless \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /usr/share/wordlists \
     && curl -sL https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/big.txt \
         -o /usr/share/wordlists/big.txt
+
+# install nodejs
+RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/*
 
 # WhatWeb
 RUN git clone --depth=1 https://github.com/urbanadventurer/WhatWeb.git /opt/whatweb \
@@ -82,8 +86,7 @@ RUN git clone --depth=1 https://github.com/sqlmapproject/sqlmap.git /opt/sqlmap 
     && chmod +x /opt/sqlmap/sqlmap.py
 
 # Mozilla HTTP Observatory
-RUN npm install -g @mdn/mdn-http-observatory 2>/dev/null \
-    && ln -sf "$(which mdn-http-observatory-scan)" /usr/local/bin/observatory 2>/dev/null || true
+RUN npm install -g @mdn/mdn-http-observatory
         
 # Nikto
 RUN git clone --depth=1 https://github.com/sullo/nikto.git /opt/nikto \

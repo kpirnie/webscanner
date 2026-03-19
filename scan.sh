@@ -328,13 +328,13 @@ section "8/18 — HTTP Security Headers (Mozilla Observatory)"
 
 if [[ "${SKIP_HEADERS}" == "false" ]]; then
     info "observatory..."
-    if command -v observatory &>/dev/null; then
-        observatory "${TARGET_HOST}" \
+    if command -v mdn-http-observatory-scan &>/dev/null; then
+        mdn-http-observatory-scan "${TARGET_HOST}" \
             > "${OUT_DIR}/observatory.json" 2>&1 || true
         ok "observatory done"
     else
         info "observatory CLI not found, querying MDN API..."
-        curl -sf -X POST "https://observatory-api.mdn.mozilla.net/api/v2/scan?host=${TARGET_HOST}" \
+        curl -s -X POST "https://observatory-api.mdn.mozilla.net/api/v2/scan?host=${TARGET_HOST}" \
             -o "${OUT_DIR}/observatory.json" 2>/dev/null || true
         ok "observatory done (API fallback)"
     fi
