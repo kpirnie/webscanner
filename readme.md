@@ -22,6 +22,7 @@
 [![testssl.sh](https://img.shields.io/github/v/release/drwetter/testssl.sh?label=testssl.sh&logo=github)](https://github.com/drwetter/testssl.sh/releases/latest)
 [![WPScan](https://img.shields.io/github/v/release/wpscanteam/wpscan?label=wpscan&logo=github)](https://github.com/wpscanteam/wpscan/releases/latest)
 [![ZAP](https://img.shields.io/github/v/release/zaproxy/zaproxy?label=owasp-zap&logo=github)](https://github.com/zaproxy/zaproxy/releases/latest)
+[![bad-bot-blocker](https://img.shields.io/github/v/release/mitchellkrogza/nginx-ultimate-bad-bot-blocker?label=nginx-bad-bot-blocker&color=43819c)](https://github.com/mitchellkrogza/nginx-ultimate-bad-bot-blocker)
 
 ---
 

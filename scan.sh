@@ -148,6 +148,7 @@ TARGET_IP=$(dig +short "${TARGET_HOST}" | grep -E '^[0-9]+\.' | head -1)
 if [[ -n "${SHODAN_API_KEY:-}" ]]; then
     info "Shodan lookup..."
     if [[ -n "${TARGET_IP}" ]]; then
+        shodan init "${SHODAN_API_KEY}" &>/dev/null
         shodan host "${TARGET_IP}" > "${OUT_DIR}/shodan.txt" 2>&1 || true
         ok "Shodan done → ${OUT_DIR}/shodan.txt"
     else
