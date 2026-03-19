@@ -158,14 +158,14 @@ else
 fi
 
 # Censys
-if [[ -n "${CENSYS_API_ID:-}" && -n "${CENSYS_API_SECRET:-}" ]]; then
+if [[ -n "$CENSYS_APP_ID" && -n "$CENSYS_TOKEN" ]]; then
     info "Censys lookup..."
-    export CENSYS_API_ID CENSYS_API_SECRET
-    censys view "${TARGET_IP:-${TARGET_HOST}}" \
-        > "${OUT_DIR}/censys.txt" 2>&1 || true
+    curl -s -H "Authorization: Bearer $CENSYS_TOKEN" \
+        "https://platform.censys.io/api/v3/global-data/hosts/${TARGET_IP:-${TARGET_HOST}}" \
+    > "${OUT_DIR}/censys.txt" 2>&1 || true
     ok "Censys done → ${OUT_DIR}/censys.txt"
 else
-    warn "CENSYS_API_ID/CENSYS_API_SECRET not set — skipping Censys (free at censys.io)"
+    warn "CENSYS_API_ID/CENSYS_TOKEN not set — skipping Censys (free at censys.io)"
 fi
 
 section "3/18 — Subdomain Enumeration"
