@@ -252,10 +252,8 @@ section "8/18 — HTTP Security Headers (Mozilla Observatory)"
 
 info "observatory..."
 if command -v observatory &>/dev/null; then
-    observatory "${TARGET_HOST}" --format json \
+    observatory "${TARGET_HOST}" \
         > "${OUT_DIR}/observatory.json" 2>&1 || true
-    observatory "${TARGET_HOST}" --format report --zero \
-        > "${OUT_DIR}/observatory.txt" 2>&1 || true
     ok "observatory done"
 else
     # Fallback: call the MDN API directly

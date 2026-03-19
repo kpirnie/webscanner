@@ -72,9 +72,9 @@ RUN pip3 install arjun shodan censys --break-system-packages 2>/dev/null || \
     pip3 install arjun shodan censys 2>/dev/null || true
 
 # Optional API keys for passive recon
-# Pass at runtime: docker run -e SHODAN_API_KEY=... -e CENSYS_API_ID=... -e CENSYS_API_SECRET=...
+# Pass at runtime: docker run -e SHODAN_API_KEY=... -e CENSYS_APP_ID=... -e CENSYS_API_SECRET=...
 ENV SHODAN_API_KEY=""
-ENV CENSYS_API_ID=""
+ENV CENSYS_APP_ID=""
 ENV CENSYS_API_SECRET=""
 
 RUN git clone --depth=1 https://github.com/sqlmapproject/sqlmap.git /opt/sqlmap \
@@ -82,10 +82,10 @@ RUN git clone --depth=1 https://github.com/sqlmapproject/sqlmap.git /opt/sqlmap 
     && chmod +x /opt/sqlmap/sqlmap.py
 
 # Mozilla HTTP Observatory
-RUN npm install -g mdn-http-observatory 2>/dev/null \
-    && ln -sf "$(npm root -g)/mdn-http-observatory/bin/mdn-http-observatory-scan.js" \
+RUN npm install -g @mdn/mdn-http-observatory 2>/dev/null \
+    && ln -sf "$(npm root -g)/@mdn/mdn-http-observatory/bin/mdn-http-observatory-scan.js" \
         /usr/local/bin/observatory 2>/dev/null || true
-
+        
 # Nikto
 RUN git clone --depth=1 https://github.com/sullo/nikto.git /opt/nikto \
     && chmod +x /opt/nikto/program/nikto.pl \
