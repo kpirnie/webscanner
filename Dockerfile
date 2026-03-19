@@ -131,7 +131,7 @@ COPY --from=go-builder /go/bin/dalfox     /usr/local/bin/dalfox
 RUN nuclei -update-templates -silent 2>/dev/null || true
 
 # Entrypoint
-COPY img/src/scan.sh /usr/local/bin/scan.sh
+COPY scan.sh /usr/local/bin/scan.sh
 RUN chmod +x /usr/local/bin/scan.sh
 
 VOLUME ["/output"]
