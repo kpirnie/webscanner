@@ -61,6 +61,7 @@ ${BOLD}Skip Flags:${RESET}
   --skip-osv            Skip OSV-Scanner dependency scanning
   --skip-nuclei         Skip Nuclei vulnerability scanning
   --skip-botblocker     Skip nginx bad bot blocker validation
+  --bot-sample N        Bad-bot random sample size per category (default: 50)
   --skip-zap            Skip OWASP ZAP active scan
   --help                Show this help
 
@@ -119,6 +120,7 @@ while [[ $# -gt 0 ]]; do
         --skip-osv)          SKIP_OSV=true ;;
         --skip-nuclei)       SKIP_NUCLEI=true ;;
         --skip-botblocker)   SKIP_BOTBLOCKER=true ;;
+        --bot-sample)        SAMPLE_SIZE="$2"; shift ;;
         --skip-zap)          SKIP_ZAP=true ;;
         --help)              usage ;;
         *) echo "Unknown option: $1"; usage ;;
@@ -212,7 +214,7 @@ if [[ "${SKIP_RECON}" == "false" ]]; then
     if [[ -n "${CENSYS_APP_ID:-}" && -n "${CENSYS_TOKEN:-}" ]]; then
         info "Censys lookup..."
         curl -s -H "Authorization: Bearer ${CENSYS_TOKEN}" \
-            "https://platform.censys.io/api/v3/global-data/hosts/${TARGET_IP:-${TARGET_HOST}}" \
+            "https://search.censys.io/api/v2/hosts/${TARGET_IP:-${TARGET_HOST}}" \
             > "${OUT_DIR}/censys.txt" 2>&1 || true
         ok "Censys done → ${OUT_DIR}/censys.txt"
     else
@@ -330,12 +332,16 @@ if [[ "${SKIP_HEADERS}" == "false" ]]; then
     info "observatory..."
     if command -v mdn-http-observatory-scan &>/dev/null; then
         mdn-http-observatory-scan "${TARGET_HOST}" \
-            > "${OUT_DIR}/observatory.json" 2>&1 || true
+            > "${OUT_DIR}/observatory.json" \
+            2> "${OUT_DIR}/observatory_error.txt" || true
         ok "observatory done"
     else
         info "observatory CLI not found, querying MDN API..."
-        curl -s -X POST "https://observatory-api.mdn.mozilla.net/api/v2/scan?host=${TARGET_HOST}" \
-            -o "${OUT_DIR}/observatory.json" 2>/dev/null || true
+        curl -sf --max-time 30 \
+            -X POST \
+            "https://observatory-api.mdn.mozilla.net/api/v2/scan?host=${TARGET_HOST}" \
+            -o "${OUT_DIR}/observatory.json" \
+            2> "${OUT_DIR}/observatory_error.txt" || true
         ok "observatory done (API fallback)"
     fi
 else
@@ -607,7 +613,7 @@ section "17/18 — Nginx Bad Bot Blocker Validation"
 
 if [[ "${SKIP_BOTBLOCKER}" == "false" ]]; then
     REPO_RAW="https://raw.githubusercontent.com/mitchellkrogza/nginx-ultimate-bad-bot-blocker/refs/heads/master/_generator_lists"
-    SAMPLE_SIZE=20
+    SAMPLE_SIZE=50
     BOT_REPORT="${OUT_DIR}/botblocker_test.txt"
     BLOCKED=0
     ALLOWED=0
@@ -763,11 +769,42 @@ if [[ "${SKIP_BOTBLOCKER}" == "false" ]]; then
     done
 
     echo ""
+    echo "=== AI CRAWLERS (should be ALLOWED — AI bot check) ==="
+    declare -A AI_BOTS=(
+        ["GPTBot"]="Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; GPTBot/1.0; +https://openai.com/gptbot)"
+        ["OAI-SearchBot"]="Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; OAI-SearchBot/1.0; +https://openai.com/searchbot)"
+        ["ChatGPT-User"]="Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; ChatGPT-User/1.0; +https://openai.com/bot)"
+        ["ClaudeBot"]="Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; ClaudeBot/0.1; +claudebot@anthropic.com)"
+        ["Claude-Web"]="Claude-Web/1.0 (+https://anthropic.com)"
+        ["Google-Extended"]="Mozilla/5.0 (compatible; Google-Extended/1.0; +https://developers.google.com/search/docs/crawling-indexing/google-common-crawlers)"
+        ["Gemini-Pro"]="Mozilla/5.0 (compatible; Gemini-Pro/1.0; +https://ai.google.dev)"
+        ["PerplexityBot"]="Mozilla/5.0 (compatible; PerplexityBot/1.0; +https://perplexity.ai/perplexitybot)"
+        ["Applebot-Extended"]="Mozilla/5.0 (compatible; Applebot-Extended/0.1; +http://www.apple.com/go/applebot)"
+        ["Amazonbot"]="Mozilla/5.0 (compatible; Amazonbot/0.1; +https://developer.amazon.com/support/amazonbot)"
+        ["YouBot"]="Mozilla/5.0 (compatible; YouBot/1.0; +https://about.you.com/youbot/)"
+        ["Bytespider"]="Mozilla/5.0 (Linux; Android 5.0) AppleWebKit/537.36 (KHTML, like Gecko) Mobile Safari/537.36 (compatible; Bytespider; spider-feedback@bytedance.com)"
+        ["cohere-ai"]="cohere-ai/1.0 (+https://cohere.com; crawl@cohere.com)"
+        ["Meta-ExternalFetcher"]="Meta-ExternalFetcher/1.1 (+https://developers.facebook.com/docs/sharing/webmasters/crawler)"
+    )
+    AI_FP=0
+    for name in "${!AI_BOTS[@]}"; do
+        ua="${AI_BOTS[$name]}"
+        result=$(is_blocked "${ua}" "")
+        if [[ "${result}" == "allowed" ]]; then
+            echo "  [ALLOWED ✓] ${name}"
+        else
+            echo "  [BLOCKED ✗] ${name} — FALSE POSITIVE"
+            (( AI_FP++ )) || true
+            (( FP++ )) || true
+        fi
+    done
+
+    echo ""
     echo "═══════════════════════════════════════════════════"
     echo "SUMMARY"
     echo "  Correctly blocked: ${BLOCKED}"
     echo "  Not blocked:       ${ALLOWED}"
-    echo "  False positives:   ${FP}"
+    echo "  False positives:   ${FP} (AI crawlers blocked: ${AI_FP})"
     TOTAL=$(( BLOCKED + ALLOWED ))
     if [[ ${TOTAL} -gt 0 ]]; then
         PCT=$(( BLOCKED * 100 / TOTAL ))

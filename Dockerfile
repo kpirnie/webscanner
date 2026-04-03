@@ -79,7 +79,7 @@ RUN pip3 install arjun shodan censys --break-system-packages 2>/dev/null || \
 # Pass at runtime: docker run -e SHODAN_API_KEY=... -e CENSYS_APP_ID=... -e CENSYS_API_SECRET=...
 ENV SHODAN_API_KEY=""
 ENV CENSYS_APP_ID=""
-ENV CENSYS_API_SECRET=""
+ENV CENSYS_TOKEN=""
 
 RUN git clone --depth=1 https://github.com/sqlmapproject/sqlmap.git /opt/sqlmap \
     && ln -sf /opt/sqlmap/sqlmap.py /usr/local/bin/sqlmap \
