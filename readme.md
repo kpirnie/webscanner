@@ -1,29 +1,30 @@
 # KP WebScanner
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![kevinpirnie.com](https://img.shields.io/badge/site-kevinpirnie.com-2d7696?labelColor=599bb8)](https://kevinpirnie.com/)
-[![Latest Build](https://img.shields.io/github/actions/workflow/status/kpirnie/webscanner/build.yml?branch=main&label=Latest+Build)](https://github.com/kpirnie/webscanner/pkgs/container/webscanner)
-[![Dev Build](https://img.shields.io/github/actions/workflow/status/kpirnie/webscanner/build.yml?branch=develop&label=Dev+Build)](https://github.com/kpirnie/webscanner/pkgs/container/webscanner)
+[![Nuclei](https://img.shields.io/github/v/release/projectdiscovery/nuclei?label=nuclei&logo=github&labelColor=000&style=for-the-badge)](https://github.com/projectdiscovery/nuclei/releases/latest)
+[![httpx](https://img.shields.io/github/v/release/projectdiscovery/httpx?label=httpx&logo=github&labelColor=000&style=for-the-badge)](https://github.com/projectdiscovery/httpx/releases/latest)
+[![subfinder](https://img.shields.io/github/v/release/projectdiscovery/subfinder?label=subfinder&logo=github&labelColor=000&style=for-the-badge)](https://github.com/projectdiscovery/subfinder/releases/latest)
+[![naabu](https://img.shields.io/github/v/release/projectdiscovery/naabu?label=naabu&logo=github&labelColor=000&style=for-the-badge)](https://github.com/projectdiscovery/naabu/releases/latest)
+[![katana](https://img.shields.io/github/v/release/projectdiscovery/katana?label=katana&logo=github&labelColor=000&style=for-the-badge)](https://github.com/projectdiscovery/katana/releases/latest)
+[![dnsx](https://img.shields.io/github/v/release/projectdiscovery/dnsx?label=dnsx&logo=github&labelColor=000&style=for-the-badge)](https://github.com/projectdiscovery/dnsx/releases/latest)
+[![gobuster](https://img.shields.io/github/v/release/OJ/gobuster?label=gobuster&logo=github&labelColor=000&style=for-the-badge)](https://github.com/OJ/gobuster/releases/latest)
+[![ffuf](https://img.shields.io/github/v/release/ffuf/ffuf?label=ffuf&logo=github&labelColor=000&style=for-the-badge)](https://github.com/ffuf/ffuf/releases/latest)
+[![sqlmap](https://img.shields.io/github/v/release/sqlmapproject/sqlmap?label=sqlmap&logo=github&labelColor=000&style=for-the-badge)](https://github.com/sqlmapproject/sqlmap/releases/latest)
+[![dalfox](https://img.shields.io/github/v/release/hahwul/dalfox?label=dalfox&logo=github&labelColor=000&style=for-the-badge)](https://github.com/hahwul/dalfox/releases/latest)
+[![arjun](https://img.shields.io/github/v/release/s0md3v/Arjun?label=arjun&logo=github&labelColor=000&style=for-the-badge)](https://github.com/s0md3v/Arjun/releases/latest)
+[![osv-scanner](https://img.shields.io/github/v/release/google/osv-scanner?label=osv-scanner&logo=github&labelColor=000&style=for-the-badge)](https://github.com/google/osv-scanner/releases/latest)
+[![nikto](https://img.shields.io/github/v/release/sullo/nikto?label=nikto&logo=github&labelColor=000&style=for-the-badge)](https://github.com/sullo/nikto/releases/latest)
+[![WhatWeb](https://img.shields.io/github/v/release/urbanadventurer/WhatWeb?label=whatweb&logo=github&labelColor=000&style=for-the-badge)](https://github.com/urbanadventurer/WhatWeb/releases/latest)
+[![testssl.sh](https://img.shields.io/github/v/release/drwetter/testssl.sh?label=testssl.sh&logo=github&labelColor=000&style=for-the-badge)](https://github.com/drwetter/testssl.sh/releases/latest)
+[![WPScan](https://img.shields.io/github/v/release/wpscanteam/wpscan?label=wpscan&logo=github&labelColor=000&style=for-the-badge)](https://github.com/wpscanteam/wpscan/releases/latest)
+[![ZAP](https://img.shields.io/github/v/release/zaproxy/zaproxy?label=owasp-zap&logo=github&labelColor=000&style=for-the-badge)](https://github.com/zaproxy/zaproxy/releases/latest)
+[![bad-bot-blocker](https://img.shields.io/badge/nginx--bad--bot--blocker-repo-43819c?logo=github&labelColor=000&style=for-the-badge)](https://github.com/mitchellkrogza/nginx-ultimate-bad-bot-blocker)
 
-[![Nuclei](https://img.shields.io/github/v/release/projectdiscovery/nuclei?label=nuclei&logo=github)](https://github.com/projectdiscovery/nuclei/releases/latest)
-[![httpx](https://img.shields.io/github/v/release/projectdiscovery/httpx?label=httpx&logo=github)](https://github.com/projectdiscovery/httpx/releases/latest)
-[![subfinder](https://img.shields.io/github/v/release/projectdiscovery/subfinder?label=subfinder&logo=github)](https://github.com/projectdiscovery/subfinder/releases/latest)
-[![naabu](https://img.shields.io/github/v/release/projectdiscovery/naabu?label=naabu&logo=github)](https://github.com/projectdiscovery/naabu/releases/latest)
-[![katana](https://img.shields.io/github/v/release/projectdiscovery/katana?label=katana&logo=github)](https://github.com/projectdiscovery/katana/releases/latest)
-[![dnsx](https://img.shields.io/github/v/release/projectdiscovery/dnsx?label=dnsx&logo=github)](https://github.com/projectdiscovery/dnsx/releases/latest)
-[![gobuster](https://img.shields.io/github/v/release/OJ/gobuster?label=gobuster&logo=github)](https://github.com/OJ/gobuster/releases/latest)
-[![ffuf](https://img.shields.io/github/v/release/ffuf/ffuf?label=ffuf&logo=github)](https://github.com/ffuf/ffuf/releases/latest)
-[![sqlmap](https://img.shields.io/github/v/release/sqlmapproject/sqlmap?label=sqlmap&logo=github)](https://github.com/sqlmapproject/sqlmap/releases/latest)
-[![dalfox](https://img.shields.io/github/v/release/hahwul/dalfox?label=dalfox&logo=github)](https://github.com/hahwul/dalfox/releases/latest)
-[![arjun](https://img.shields.io/github/v/release/s0md3v/Arjun?label=arjun&logo=github)](https://github.com/s0md3v/Arjun/releases/latest)
-[![osv-scanner](https://img.shields.io/github/v/release/google/osv-scanner?label=osv-scanner&logo=github)](https://github.com/google/osv-scanner/releases/latest)
-[![nikto](https://img.shields.io/github/v/release/sullo/nikto?label=nikto&logo=github)](https://github.com/sullo/nikto/releases/latest)
-[![WhatWeb](https://img.shields.io/github/v/release/urbanadventurer/WhatWeb?label=whatweb&logo=github)](https://github.com/urbanadventurer/WhatWeb/releases/latest)
-[![testssl.sh](https://img.shields.io/github/v/release/drwetter/testssl.sh?label=testssl.sh&logo=github)](https://github.com/drwetter/testssl.sh/releases/latest)
-[![WPScan](https://img.shields.io/github/v/release/wpscanteam/wpscan?label=wpscan&logo=github)](https://github.com/wpscanteam/wpscan/releases/latest)
-[![ZAP](https://img.shields.io/github/v/release/zaproxy/zaproxy?label=owasp-zap&logo=github)](https://github.com/zaproxy/zaproxy/releases/latest)
-[![bad-bot-blocker](https://img.shields.io/badge/nginx--bad--bot--blocker-repo-43819c?logo=github)](https://github.com/mitchellkrogza/nginx-ultimate-bad-bot-blocker)
-
+[![Build Main](https://img.shields.io/github/actions/workflow/status/kpirnie/webscanner/build.yml?branch=main&label=Main&logoColor=white&logo=github&labelColor=000&style=for-the-badge)](https://github.com/kpirnie/webscanner/actions?query=workflow%3A%22Build+and+Push+Docker+Image%22+branch%3Amain)
+[![Build Develop](https://img.shields.io/github/actions/workflow/status/kpirnie/webscanner/build.yml?branch=develop&logoColor=white&label=Develop&logo=github&labelColor=000&style=for-the-badge)](https://github.com/kpirnie/webscanner/actions?query=workflow%3A%22Build+and+Push+Docker+Image%22+branch%3Adevelop)
+[![GitHub Issues](https://img.shields.io/github/issues/kpirnie/m3u-scanner?style=for-the-badge&logo=github&color=006400&logoColor=white&labelColor=000)](https://github.com/kpirnie/m3u-scanner/issues)
+[![Last Commit](https://img.shields.io/github/last-commit/kpirnie/webscanner?style=for-the-badge&labelColor=000)](https://github.com/kpirnie/webscanner/commits/main)
+[![License: MIT](https://img.shields.io/badge/License-MIT-orange.svg?style=for-the-badge&logo=opensourceinitiative&logoColor=white&labelColor=000)](LICENSE)
+[![Kevin Pirnie](https://img.shields.io/badge/www-KevinPirnie.com-000d2d?style=for-the-badge&labelColor=000&logoColor=white&logo=data:image/svg%2Bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIxLjgiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+CiAgPGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTAiLz4KICA8ZWxsaXBzZSBjeD0iMTIiIGN5PSIxMiIgcng9IjQuNSIgcnk9IjEwIi8+CiAgPGxpbmUgeDE9IjIiIHkxPSIxMiIgeDI9IjIyIiB5Mj0iMTIiLz4KICA8bGluZSB4MT0iNC41IiB5MT0iNi41IiB4Mj0iMTkuNSIgeTI9IjYuNSIvPgogIDxsaW5lIHgxPSI0LjUiIHkxPSIxNy41IiB4Mj0iMTkuNSIgeTI9IjE3LjUiLz4KPC9zdmc+Cg==)](https://kevinpirnie.com/)
 ---
 
 **KP WebScanner** is a fully self-contained, Docker-based web security scanning suite. It bundles twenty-two industry-standard security tools into a single image, orchestrated by a single entrypoint script. Point it at any target and get a comprehensive security assessment covering passive recon, fingerprinting, subdomain enumeration, DNS analysis, port scanning, deep service fingerprinting, SSL/TLS auditing, HTTP security header grading, parameter discovery, XSS scanning, SQL injection testing, dependency vulnerability scanning, vulnerability detection, endpoint discovery, active scanning, and nginx bad bot blocker validation — with automatic WordPress-specific scanning when detected.
@@ -160,6 +161,7 @@ Every scan step can be individually skipped:
 | `--skip-osv` | OSV-Scanner dependency scanning |
 | `--skip-nuclei` | Nuclei vulnerability scanning |
 | `--skip-botblocker` | nginx bad bot blocker validation |
+| `--bot-sample N` | Bad-bot random sample size per category (default: 50) |
 | `--skip-zap` | OWASP ZAP active scan |
 
 ### Optional API Keys
