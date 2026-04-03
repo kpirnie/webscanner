@@ -6,7 +6,7 @@
 set -euo pipefail
 
 # really only for reference
-VER='0.1.98'
+VER='0.2.09'
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
