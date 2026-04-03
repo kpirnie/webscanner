@@ -267,7 +267,7 @@ results/
 - Dalfox runs in file mode against all katana-discovered endpoints, falling back to the base URL if none found
 - sqlmap runs at `--level=2 --risk=1` by default — safe for authorized testing without being overly aggressive
 - Drupal and Joomla are detected and logged; CVE coverage is provided by Nuclei templates and ZAP rather than abandoned dedicated scanners
-- Bot blocker validation fetches live lists from mitchellkrogza/nginx-ultimate-bad-bot-blocker at runtime, samples 20 random entries per category, and checks 5 known-good bots for false positives
+- Bot blocker validation fetches live bad-bot lists from mitchellkrogza/nginx-ultimate-bad-bot-blocker at runtime and samples 50 random entries per bad-bot category; the full whitelist-ua.list and whitelist-ip.list from kpirnie-me/bots-for-scanner are fetched and tested in their entirety (no sampling) to guarantee no false positives are missed
 - All Go-based tools are compiled in a separate builder stage; only binaries are copied to the final image, keeping image size lean
 
 ---

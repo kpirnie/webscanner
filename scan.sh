@@ -656,11 +656,21 @@ if [[ "${SKIP_BOTBLOCKER}" == "false" ]]; then
     BAD_IP_LIST=$(curl -sf --max-time 15 "${REPO_RAW}/bad-ip-addresses.list" 2>/dev/null | \
         grep -v '^#' | grep -v '^[[:space:]]*$' | grep -E '^[0-9]+\.' | shuf | head -${SAMPLE_SIZE}) || true
 
+    info "Fetching whitelist user-agents..."
+    WHITELIST_UA=$(curl -sf --max-time 15 \
+        "https://raw.githubusercontent.com/kpirnie-me/bots-for-scanner/refs/heads/main/whitelist-ua.list" \
+        2>/dev/null | grep -v '^#' | grep -v '^[[:space:]]*$') || true
+
+    info "Fetching whitelist IPs..."
+    WHITELIST_IP=$(curl -sf --max-time 15 \
+        "https://raw.githubusercontent.com/kpirnie-me/bots-for-scanner/refs/heads/main/whitelist-ip.list" \
+        2>/dev/null | grep -v '^#' | grep -v '^[[:space:]]*$' | grep -E '^[0-9]+\.') || true
+
     {
     echo "ngxbottest — Nginx Bad Bot Blocker Validation"
     echo "Target:  ${TARGET_URI}"
     echo "Date:    $(date)"
-    echo "Samples: ${SAMPLE_SIZE} per category"
+    echo "Samples: ${SAMPLE_SIZE} per bad-bot category | Whitelist: full coverage (no sampling)"
     echo ""
 
     echo "=== BAD USER-AGENTS (should be BLOCKED) ==="
@@ -752,62 +762,69 @@ if [[ "${SKIP_BOTBLOCKER}" == "false" ]]; then
     fi
 
     echo ""
-    echo "=== GOOD BOTS (should be ALLOWED — false positive check) ==="
-    declare -A GOOD_BOTS=(
-        ["Googlebot"]="Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
-        ["Bingbot"]="Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)"
-        ["DuckDuckBot"]="DuckDuckBot/1.0; (+http://duckduckgo.com/duckduckbot.html)"
-        ["Applebot"]="Mozilla/5.0 (compatible; Applebot/0.3)"
-        ["FacebookBot"]="facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)"
-    )
-    for name in "${!GOOD_BOTS[@]}"; do
-        ua="${GOOD_BOTS[$name]}"
-        result=$(is_blocked "${ua}" "")
-        if [[ "${result}" == "allowed" ]]; then
-            echo "  [ALLOWED ✓] ${name}"
-        else
-            echo "  [BLOCKED ✗] ${name} — FALSE POSITIVE"
-            (( FP++ )) || true
-        fi
-    done
+    echo "=== WHITELISTED USER-AGENTS (should be ALLOWED — full coverage, no sampling) ==="
+    WL_FP=0
+    if [[ -n "${WHITELIST_UA}" ]]; then
+        while IFS= read -r ua; do
+            [[ -z "${ua}" ]] && continue
+            result=$(is_blocked "${ua}" "")
+            if [[ "${result}" == "allowed" ]]; then
+                echo "  [ALLOWED ✓] ${ua}"
+            else
+                echo "  [BLOCKED ✗] ${ua} — FALSE POSITIVE"
+                (( WL_FP++ )) || true
+                (( FP++ )) || true
+            fi
+        done <<< "${WHITELIST_UA}"
+    else
+        echo "  [!] Could not fetch whitelist-ua.list — using hardcoded fallback"
+        for ua in Googlebot bingbot DuckDuckBot ClaudeBot GPTBot Applebot \
+                   FacebookBot PerplexityBot Amazonbot Bytespider cohere-ai; do
+            result=$(is_blocked "${ua}" "")
+            if [[ "${result}" == "allowed" ]]; then
+                echo "  [ALLOWED ✓] ${ua}"
+            else
+                echo "  [BLOCKED ✗] ${ua} — FALSE POSITIVE"
+                (( WL_FP++ )) || true
+                (( FP++ )) || true
+            fi
+        done
+    fi
 
     echo ""
-    echo "=== AI CRAWLERS (should be ALLOWED — AI bot check) ==="
-    declare -A AI_BOTS=(
-        ["GPTBot"]="Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; GPTBot/1.0; +https://openai.com/gptbot)"
-        ["OAI-SearchBot"]="Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; OAI-SearchBot/1.0; +https://openai.com/searchbot)"
-        ["ChatGPT-User"]="Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; ChatGPT-User/1.0; +https://openai.com/bot)"
-        ["ClaudeBot"]="Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; ClaudeBot/0.1; +claudebot@anthropic.com)"
-        ["Claude-Web"]="Claude-Web/1.0 (+https://anthropic.com)"
-        ["Google-Extended"]="Mozilla/5.0 (compatible; Google-Extended/1.0; +https://developers.google.com/search/docs/crawling-indexing/google-common-crawlers)"
-        ["Gemini-Pro"]="Mozilla/5.0 (compatible; Gemini-Pro/1.0; +https://ai.google.dev)"
-        ["PerplexityBot"]="Mozilla/5.0 (compatible; PerplexityBot/1.0; +https://perplexity.ai/perplexitybot)"
-        ["Applebot-Extended"]="Mozilla/5.0 (compatible; Applebot-Extended/0.1; +http://www.apple.com/go/applebot)"
-        ["Amazonbot"]="Mozilla/5.0 (compatible; Amazonbot/0.1; +https://developer.amazon.com/support/amazonbot)"
-        ["YouBot"]="Mozilla/5.0 (compatible; YouBot/1.0; +https://about.you.com/youbot/)"
-        ["Bytespider"]="Mozilla/5.0 (Linux; Android 5.0) AppleWebKit/537.36 (KHTML, like Gecko) Mobile Safari/537.36 (compatible; Bytespider; spider-feedback@bytedance.com)"
-        ["cohere-ai"]="cohere-ai/1.0 (+https://cohere.com; crawl@cohere.com)"
-        ["Meta-ExternalFetcher"]="Meta-ExternalFetcher/1.1 (+https://developers.facebook.com/docs/sharing/webmasters/crawler)"
-    )
-    AI_FP=0
-    for name in "${!AI_BOTS[@]}"; do
-        ua="${AI_BOTS[$name]}"
-        result=$(is_blocked "${ua}" "")
-        if [[ "${result}" == "allowed" ]]; then
-            echo "  [ALLOWED ✓] ${name}"
-        else
-            echo "  [BLOCKED ✗] ${name} — FALSE POSITIVE"
-            (( AI_FP++ )) || true
-            (( FP++ )) || true
-        fi
-    done
+    echo "=== WHITELISTED IPs (should be ALLOWED — full coverage, no sampling) ==="
+    WL_IP_FP=0
+    if [[ -n "${WHITELIST_IP}" ]]; then
+        while IFS= read -r ip; do
+            [[ -z "${ip}" ]] && continue
+            http_code=$(curl -sf \
+                --max-time 8 \
+                --connect-timeout 5 \
+                -H "X-Forwarded-For: ${ip}" \
+                -H "X-Real-IP: ${ip}" \
+                -o /dev/null \
+                -w "%{http_code}" \
+                "${TARGET_URI}" 2>/dev/null) || http_code="000"
+            if [[ "${http_code}" =~ ^[23][0-9][0-9]$ ]]; then
+                echo "  [ALLOWED ✓] IP: ${ip}"
+            else
+                echo "  [BLOCKED ✗] IP: ${ip} — FALSE POSITIVE"
+                (( WL_IP_FP++ )) || true
+                (( FP++ )) || true
+            fi
+        done <<< "${WHITELIST_IP}"
+    else
+        echo "  (whitelist-ip.list is empty or unavailable — skipped)"
+    fi
 
     echo ""
     echo "═══════════════════════════════════════════════════"
     echo "SUMMARY"
     echo "  Correctly blocked: ${BLOCKED}"
     echo "  Not blocked:       ${ALLOWED}"
-    echo "  False positives:   ${FP} (AI crawlers blocked: ${AI_FP})"
+    echo "  False positives:   ${FP}"
+    echo "    → Whitelisted UAs blocked: ${WL_FP}"
+    echo "    → Whitelisted IPs blocked: ${WL_IP_FP}"
     TOTAL=$(( BLOCKED + ALLOWED ))
     if [[ ${TOTAL} -gt 0 ]]; then
         PCT=$(( BLOCKED * 100 / TOTAL ))
