@@ -69,6 +69,9 @@ All tools install at their latest versions at image build time. No host dependen
 ### Pull from GHCR
 
 ```bash
+# Specific release
+docker pull ghcr.io/kpirnie/webscanner:v#.#.#
+
 # Latest stable (main branch)
 docker pull ghcr.io/kpirnie/webscanner:latest
 

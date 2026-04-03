@@ -5,6 +5,8 @@ on:
     branches:
       - main
       - develop
+    tags:
+      - "v*.*.*"
   workflow_dispatch:
 
 env:
@@ -39,11 +41,10 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            # main branch → :latest
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
-            # develop branch → :develop
             type=raw,value=develop,enable=${{ github.ref == 'refs/heads/develop' }}
-            # always tag with short SHA
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
             type=sha,prefix=,format=short
 
       - name: Build and push Docker image
